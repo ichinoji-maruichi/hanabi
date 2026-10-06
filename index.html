@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>はなびメーカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#060819; --sky:#141c4a;
+  --lantern:#ffcf86; --paper:#f6ead6; --muted:#a3a7cc;
+  --panel:rgba(14,18,48,.8); --line:rgba(255,220,170,.18); --rec:#ff5a6e;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root:not([data-theme="light"]){ color-scheme:dark; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --panel:rgba(14,18,48,.8); } }
+:root[data-theme="dark"]{ --panel:rgba(14,18,48,.8); }
+*,*::before,*::after{ box-sizing:inherit; }
+html{ height:100%; scroll-padding-top:env(safe-area-inset-top,0px); }
+body{
+  height:100%; margin:0; overflow:hidden; color:var(--paper); background:var(--night);
+  font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  -webkit-tap-highlight-color:transparent; user-select:none;
+}
+#sky{ position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:manipulation; }
+header{
+  position:fixed; top:0; left:0; right:0; pointer-events:none;
+  padding:calc(14px + env(safe-area-inset-top,0px)) 20px 0;
+  display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+}
+h1{ margin:0; font-family:"Yusei Magic","Zen Maru Gothic",sans-serif; font-weight:400;
+  font-size:clamp(22px,4.2vw,30px); letter-spacing:.06em; color:var(--lantern);
+  text-shadow:0 0 18px rgba(255,190,110,.45); }
+#hint{ font-size:13px; color:var(--muted); transition:opacity .6s; }
+#recBadge{ display:none; margin-left:auto; pointer-events:auto; cursor:pointer; font-weight:700; font-size:14px; color:var(--rec); }
+body.recording #recBadge{ display:block; }
+#panel{
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  width:min(780px, calc(100% - 16px));
+  background:var(--panel); border:1px solid var(--line); border-radius:22px;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  padding:8px; display:flex; flex-direction:column; gap:8px;
+  transition:opacity .3s;
+}
+.row{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.row[hidden]{ display:none; }
+#panel>.chiprow{ flex-wrap:nowrap; gap:6px; }
+#chips{ position:relative; display:flex; gap:6px; align-items:center; flex:1 1 auto; min-width:0;
+  overflow-x:auto; overflow-y:hidden; scrollbar-width:none; padding:6px 6px 4px 2px; overscroll-behavior-x:contain; }
+#chips.fl{ -webkit-mask-image:linear-gradient(90deg,transparent,#000 28px); mask-image:linear-gradient(90deg,transparent,#000 28px); }
+#chips.fr{ -webkit-mask-image:linear-gradient(270deg,transparent,#000 28px); mask-image:linear-gradient(270deg,transparent,#000 28px); }
+#chips.fl.fr{ -webkit-mask-image:linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent); mask-image:linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent); }
+#chips.dragging{ cursor:grabbing; }
+.adds{ display:flex; gap:6px; flex:none; padding-left:6px; border-left:1px solid var(--line); }
+#chips::-webkit-scrollbar{ display:none; }
+.btn,.seg button,select,input[type=text]{
+  font:inherit; font-weight:700; font-size:14px; color:var(--paper);
+  background:rgba(255,255,255,.06); border:1px solid var(--line);
+  border-radius:999px; min-height:40px; padding:0 14px; cursor:pointer; white-space:nowrap;
+}
+input[type=text]{ cursor:text; flex:1 1 140px; min-width:0; font-weight:500; user-select:text; }
+input[type=text]::placeholder{ color:var(--muted); }
+:is(.btn,.seg button,select,input,.chip,.x):focus-visible{ outline:2px solid var(--lantern); outline-offset:2px; }
+label.chk:focus-within{ outline:2px solid var(--lantern); outline-offset:2px; border-radius:8px; }
+.btn[aria-pressed="true"]{ background:rgba(255,207,134,.2); border-color:var(--lantern); color:var(--lantern); }
+.btn.primary{ background:var(--lantern); color:#2a1a05; border-color:var(--lantern); }
+.seg{ display:flex; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:999px; padding:3px; }
+.seg button{ border:none; background:transparent; min-height:34px; padding:0 12px; color:var(--muted); }
+.seg button[aria-pressed="true"]{ background:var(--lantern); color:#2a1a05; }
+select{ appearance:none; -webkit-appearance:none; }
+select option{ color:#111; }
+label.chk{ display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); padding:0 6px; min-height:40px; cursor:pointer; }
+label.chk input{ accent-color:var(--lantern); width:18px; height:18px; }
+#info{ margin-left:auto; font-size:12px; color:var(--muted); padding-right:6px; }
+.chipwrap{ position:relative; flex:none; }
+.chip{
+  flex:none; height:44px; min-width:44px; border-radius:999px; padding:0 14px;
+  font:inherit; font-weight:700; font-size:14px; color:var(--paper); cursor:pointer;
+  background:rgba(255,255,255,.06); border:2px solid transparent;
+}
+.chip.thumb{ padding:0; width:44px; overflow:hidden; }
+.chip.thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.chip.text{ font-family:"Yusei Magic",sans-serif; font-weight:400; max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.chip[aria-pressed="true"]{ border-color:var(--lantern); box-shadow:0 0 12px rgba(255,190,110,.5); }
+.chip.add{ border:1px dashed rgba(255,207,134,.55); color:var(--lantern); background:transparent; }
+.x{ position:absolute; top:-4px; right:-4px; width:22px; height:22px; border-radius:50%;
+  border:none; background:#2a2440; color:var(--paper); font-size:13px; line-height:22px; padding:0; cursor:pointer;
+  display:none; box-shadow:0 0 0 1px var(--line); }
+.chipwrap.sel .x{ display:block; }
+#rec[aria-pressed="true"]{ background:var(--rec); border-color:var(--rec); color:#fff; }
+#drop{ position:fixed; inset:0; display:none; place-items:center; background:rgba(6,8,25,.6);
+  font-family:"Yusei Magic",sans-serif; font-size:26px; color:var(--lantern); pointer-events:none; }
+body.dragging #drop{ display:grid; }
+#toast{ position:fixed; left:50%; top:calc(64px + env(safe-area-inset-top,0px)); transform:translateX(-50%);
+  background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:8px 16px; font-size:13px;
+  opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; }
+#toast.show{ opacity:1; }
+#paint{ position:fixed; inset:0; z-index:5; background:rgba(4,5,15,.82); display:grid; place-items:center;
+  padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px)); }
+#paint[hidden]{ display:none; }
+.paintbox{ width:min(560px,100%); background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:12px;
+  display:flex; flex-direction:column; gap:10px; align-items:center; }
+.paintbox h2{ margin:0; align-self:flex-start; font-family:"Yusei Magic",sans-serif; font-weight:400; font-size:20px; color:var(--lantern); }
+#pc{ width:min(100%, 58vh); aspect-ratio:1; border-radius:14px; touch-action:none; cursor:crosshair; display:block;
+  background:radial-gradient(circle at 50% 40%, #1b2460, #0a0d26 75%); border:1px solid var(--line); }
+.paintbox .row{ width:100%; justify-content:center; }
+.brushwrap{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
+#brush{ width:120px; accent-color:var(--lantern); }
+#brushDot{ width:40px; height:40px; display:grid; place-items:center; }
+#brushDot span{ display:block; border-radius:50%; background:var(--paper); }
+@media (max-width:560px){
+  .btn,.seg button,select{ font-size:13px; padding:0 11px; }
+  .seg button{ padding:0 10px; }
+  .adds .chip{ padding:0 10px; font-size:13px; }
+}
+</style>
+</head>
+<body>
+<canvas id="sky" aria-label="花火の夜空。タップで打ち上げ"></canvas>
+<header><h1>はなびメーカー</h1><span id="hint">空をタップで打ち上げ。＋絵・＋文字・＋描くで花火を増やせます。</span><span id="recBadge">● 0:00</span></header>
+<div id="toast" role="status"></div>
+
+<div id="panel">
+  <div class="row chiprow">
+    <div id="chips" role="group" aria-label="打ち上げる花火"></div>
+    <div class="adds">
+      <button class="chip add" id="addImg" type="button">＋絵</button>
+      <button class="chip add" id="addText" type="button">＋文字</button>
+      <button class="chip add" id="addDraw" type="button">＋描く</button>
+    </div>
+  </div>
+  <div class="row" id="textForm" hidden>
+    <input type="text" id="textIn" maxlength="14" placeholder="花火にする文字（例：おめでとう）">
+    <select id="textColor" aria-label="文字の色">
+      <option value="gold">金</option><option value="rainbow">虹</option>
+      <option value="sakura">桜</option><option value="sky">青</option>
+    </select>
+    <button class="btn primary" id="textOk" type="button">追加</button>
+    <button class="btn" id="textCancel" type="button">やめる</button>
+  </div>
+  <div class="row">
+    <div class="seg" id="modeSeg" role="group" aria-label="描き方">
+      <button type="button" data-v="dots" aria-pressed="true">点描</button>
+      <button type="button" data-v="line" aria-pressed="false">輪郭</button>
+    </div>
+    <div class="seg" id="sizeSeg" role="group" aria-label="タップで上げる大きさ">
+      <button type="button" data-v="0.6" aria-pressed="false">小</button>
+      <button type="button" data-v="1" aria-pressed="true">中</button>
+      <button type="button" data-v="1.45" aria-pressed="false">大</button>
+    </div>
+    <button class="btn" id="auto" type="button" aria-pressed="false">自動で連発</button>
+    <button class="btn" id="rec" type="button" aria-pressed="false">● 録画</button>
+    <button class="btn" id="gear" type="button" aria-expanded="false" aria-controls="settings">設定</button>
+  </div>
+  <div class="row" id="settings" hidden>
+    <select id="density" aria-label="粒の細かさ">
+      <option value="70">粒：粗め</option>
+      <option value="100" selected>粒：ふつう</option>
+      <option value="140">粒：細かい</option>
+    </select>
+    <button class="btn" id="trail" type="button" aria-pressed="true">残像</button>
+    <button class="btn" id="bloom" type="button" aria-pressed="true">光のにじみ</button>
+    <button class="btn" id="sound" type="button" aria-pressed="true">音</button>
+    <button class="btn" id="cheer" type="button" aria-pressed="true">歓声</button>
+    <label class="chk"><input type="checkbox" id="bg" checked>絵の背景を消す</label>
+    <span id="info"></span>
+  </div>
+  <input type="file" id="file" accept="image/*" multiple hidden>
+</div>
+<div id="paint" hidden role="dialog" aria-modal="true" aria-label="花火の絵を描く">
+  <div class="paintbox">
+    <h2>夜空に描く</h2>
+    <canvas id="pc" width="600" height="600"></canvas>
+    <div class="row">
+      <div class="seg" id="toolSeg" role="group" aria-label="道具">
+        <button type="button" data-v="pen" aria-pressed="true">ペン</button>
+        <button type="button" data-v="eraser" aria-pressed="false">消しゴム</button>
+      </div>
+      <label class="brushwrap">太さ<input type="range" id="brush" min="3" max="44" value="12"><span id="brushDot"><span></span></span></label>
+    </div>
+    <div class="row">
+      <button class="btn" id="pUndo" type="button">ひとつ戻す</button>
+      <button class="btn" id="pClear" type="button">全部消す</button>
+      <button class="btn" id="pCancel" type="button">やめる</button>
+      <button class="btn primary" id="pDone" type="button">打ち上げる</button>
+    </div>
+  </div>
+</div>
+<div id="drop">ここに絵を落とす</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* three.js r128 examples/js（MIT License）: CopyShader, LuminosityHighPassShader, AfterimageShader, EffectComposer, ShaderPass, RenderPass, UnrealBloomPass, AfterimagePass */
+( function () {
+
+	/**
+ * Full-screen textured quad shader
+ */
+	var CopyShader = {
+		uniforms: {
+			'tDiffuse': {
+				value: null
+			},
+			'opacity': {
+				value: 1.0
+			}
+		},
+		vertexShader:
+  /* glsl */
+  `
+
+		varying vec2 vUv;
+
+		void main() {
+
+			vUv = uv;
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+		}`,
+		fragmentShader:
+  /* glsl */
+  `
+
+		uniform float opacity;
+
+		uniform sampler2D tDiffuse;
+
+		varying vec2 vUv;
+
+		void main() {
+
+			vec4 texel = texture2D( tDiffuse, vUv );
+			gl_FragColor = opacity * texel;
+
+		}`
+	};
+
+	THREE.CopyShader = CopyShader;
+
+} )();
+( function () {
+
+	/**
+ * Luminosity
+ * http://en.wikipedia.org/wiki/Luminosity
+ */
+
+	const LuminosityHighPassShader = {
+		shaderID: 'luminosityHighPass',
+		uniforms: {
+			'tDiffuse': {
+				value: null
+			},
+			'luminosityThreshold': {
+				value: 1.0
+			},
+			'smoothWidth': {
+				value: 1.0
+			},
+			'defaultColor': {
+				value: new THREE.Color( 0x000000 )
+			},
+			'defaultOpacity': {
+				value: 0.0
+			}
+		},
+		vertexShader:
+  /* glsl */
+  `
+
+		varying vec2 vUv;
+
+		void main() {
+
+			vUv = uv;
+
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+		}`,
+		fragmentShader:
+  /* glsl */
+  `
+
+		uniform sampler2D tDiffuse;
+		uniform vec3 defaultColor;
+		uniform float defaultOpacity;
+		uniform float luminosityThreshold;
+		uniform float smoothWidth;
+
+		varying vec2 vUv;
+
+		void main() {
+
+			vec4 texel = texture2D( tDiffuse, vUv );
+
+			vec3 luma = vec3( 0.299, 0.587, 0.114 );
+
+			float v = dot( texel.xyz, luma );
+
+			vec4 outputColor = vec4( defaultColor.rgb, defaultOpacity );
+
+			float alpha = smoothstep( luminosityThreshold, luminosityThreshold + smoothWidth, v );
+
+			gl_FragColor = mix( outputColor, texel, alpha );
+
+		}`
+	};
+
+	THREE.LuminosityHighPassShader = LuminosityHighPassShader;
+
+} )();
+( function () {
+
+	/**
+ * Afterimage shader
+ * I created this effect inspired by a demo on codepen:
+ * https://codepen.io/brunoimbrizi/pen/MoRJaN?page=1&
+ */
+	const AfterimageShader = {
+		uniforms: {
+			'damp': {
+				value: 0.96
+			},
+			'tOld': {
+				value: null
+			},
+			'tNew': {
+				value: null
+			}
+		},
+		vertexShader:
+  /* glsl */
+  `
+
+		varying vec2 vUv;
+
+		void main() {
+
+			vUv = uv;
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+		}`,
+		fragmentShader:
+  /* glsl */
+  `
+
+		uniform float damp;
+
+		uniform sampler2D tOld;
+		uniform sampler2D tNew;
+
+		varying vec2 vUv;
+
+		vec4 when_gt( vec4 x, float y ) {
+
+			return max( sign( x - y ), 0.0 );
+
+		}
+
+		void main() {
+
+			vec4 texelOld = texture2D( tOld, vUv );
+			vec4 texelNew = texture2D( tNew, vUv );
+
+			texelOld *= damp * when_gt( texelOld, 0.1 );
+
+			gl_FragColor = max(texelNew, texelOld);
+
+		}`
+	};
+
+	THREE.AfterimageShader = AfterimageShader;
+
+} )();
+( function () {
+
+	class EffectComposer {
+
+		constructor( renderer, renderTarget ) {
+
+			this.renderer = renderer;
+
+			if ( renderTarget === undefined ) {
+
+				const parameters = {
+					minFilter: THREE.LinearFilter,
+					magFilter: THREE.LinearFilter,
+					format: THREE.RGBAFormat
+				};
+				const size = renderer.getSize( new THREE.Vector2() );
+				this._pixelRatio = renderer.getPixelRatio();
+				this._width = size.width;
+				this._height = size.height;
+				renderTarget = new THREE.WebGLRenderTarget( this._width * this._pixelRatio, this._height * this._pixelRatio, parameters );
+				renderTarget.texture.name = 'EffectComposer.rt1';
+
+			} else {
+
+				this._pixelRatio = 1;
+				this._width = renderTarget.width;
+				this._height = renderTarget.height;
+
+			}
+
+			this.renderTarget1 = renderTarget;
+			this.renderTarget2 = renderTarget.clone();
+			this.renderTarget2.texture.name = 'EffectComposer.rt2';
+			this.writeBuffer = this.renderTarget1;
+			this.readBuffer = this.renderTarget2;
+			this.renderToScreen = true;
+			this.passes = []; // dependencies
+
+			if ( THREE.CopyShader === undefined ) {
+
+				console.error( 'THREE.EffectComposer relies on THREE.CopyShader' );
+
+			}
+
+			if ( THREE.ShaderPass === undefined ) {
+
+				console.error( 'THREE.EffectComposer relies on THREE.ShaderPass' );
+
+			}
+
+			this.copyPass = new THREE.ShaderPass( THREE.CopyShader );
+			this.clock = new THREE.Clock();
+
+		}
+
+		swapBuffers() {
+
+			const tmp = this.readBuffer;
+			this.readBuffer = this.writeBuffer;
+			this.writeBuffer = tmp;
+
+		}
+
+		addPass( pass ) {
+
+			this.passes.push( pass );
+			pass.setSize( this._width * this._pixelRatio, this._height * this._pixelRatio );
+
+		}
+
+		insertPass( pass, index ) {
+
+			this.passes.splice( index, 0, pass );
+			pass.setSize( this._width * this._pixelRatio, this._height * this._pixelRatio );
+
+		}
+
+		removePass( pass ) {
+
+			const index = this.passes.indexOf( pass );
+
+			if ( index !== - 1 ) {
+
+				this.passes.splice( index, 1 );
+
+			}
+
+		}
+
+		isLastEnabledPass( passIndex ) {
+
+			for ( let i = passIndex + 1; i < this.passes.length; i ++ ) {
+
+				if ( this.passes[ i ].enabled ) {
+
+					return false;
+
+				}
+
+			}
+
+			return true;
+
+		}
+
+		render( deltaTime ) {
+
+			// deltaTime value is in seconds
+			if ( deltaTime === undefined ) {
+
+				deltaTime = this.clock.getDelta();
+
+			}
+
+			const currentRenderTarget = this.renderer.getRenderTarget();
+			let maskActive = false;
+
+			for ( let i = 0, il = this.passes.length; i < il; i ++ ) {
+
+				const pass = this.passes[ i ];
+				if ( pass.enabled === false ) continue;
+				pass.renderToScreen = this.renderToScreen && this.isLastEnabledPass( i );
+				pass.render( this.renderer, this.writeBuffer, this.readBuffer, deltaTime, maskActive );
+
+				if ( pass.needsSwap ) {
+
+					if ( maskActive ) {
+
+						const context = this.renderer.getContext();
+						const stencil = this.renderer.state.buffers.stencil; //context.stencilFunc( context.NOTEQUAL, 1, 0xffffffff );
+
+						stencil.setFunc( context.NOTEQUAL, 1, 0xffffffff );
+						this.copyPass.render( this.renderer, this.writeBuffer, this.readBuffer, deltaTime ); //context.stencilFunc( context.EQUAL, 1, 0xffffffff );
+
+						stencil.setFunc( context.EQUAL, 1, 0xffffffff );
+
+					}
+
+					this.swapBuffers();
+
+				}
+
+				if ( THREE.MaskPass !== undefined ) {
+
+					if ( pass instanceof THREE.MaskPass ) {
+
+						maskActive = true;
+
+					} else if ( pass instanceof THREE.ClearMaskPass ) {
+
+						maskActive = false;
+
+					}
+
+				}
+
+			}
+
+			this.renderer.setRenderTarget( currentRenderTarget );
+
+		}
+
+		reset( renderTarget ) {
+
+			if ( renderTarget === undefined ) {
+
+				const size = this.renderer.getSize( new THREE.Vector2() );
+				this._pixelRatio = this.renderer.getPixelRatio();
+				this._width = size.width;
+				this._height = size.height;
+				renderTarget = this.renderTarget1.clone();
+				renderTarget.setSize( this._width * this._pixelRatio, this._height * this._pixelRatio );
+
+			}
+
+			this.renderTarget1.dispose();
+			this.renderTarget2.dispose();
+			this.renderTarget1 = renderTarget;
+			this.renderTarget2 = renderTarget.clone();
+			this.writeBuffer = this.renderTarget1;
+			this.readBuffer = this.renderTarget2;
+
+		}
+
+		setSize( width, height ) {
+
+			this._width = width;
+			this._height = height;
+			const effectiveWidth = this._width * this._pixelRatio;
+			const effectiveHeight = this._height * this._pixelRatio;
+			this.renderTarget1.setSize( effectiveWidth, effectiveHeight );
+			this.renderTarget2.setSize( effectiveWidth, effectiveHeight );
+
+			for ( let i = 0; i < this.passes.length; i ++ ) {
+
+				this.passes[ i ].setSize( effectiveWidth, effectiveHeight );
+
+			}
+
+		}
+
+		setPixelRatio( pixelRatio ) {
+
+			this._pixelRatio = pixelRatio;
+			this.setSize( this._width, this._height );
+
+		}
+
+	}
+
+	class Pass {
+
+		constructor() {
+
+			// if set to true, the pass is processed by the composer
+			this.enabled = true; // if set to true, the pass indicates to swap read and write buffer after rendering
+
+			this.needsSwap = true; // if set to true, the pass clears its buffer before rendering
+
+			this.clear = false; // if set to true, the result of the pass is rendered to screen. This is set automatically by EffectComposer.
+
+			this.renderToScreen = false;
+
+		}
+
+		setSize( ) {}
+
+		render( ) {
+
+			console.error( 'THREE.Pass: .render() must be implemented in derived pass.' );
+
+		}
+
+	} // Helper for passes that need to fill the viewport with a single quad.
+
+
+	const _camera = new THREE.OrthographicCamera( - 1, 1, 1, - 1, 0, 1 ); // https://github.com/mrdoob/three.js/pull/21358
+
+
+	const _geometry = new THREE.BufferGeometry();
+
+	_geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( [ - 1, 3, 0, - 1, - 1, 0, 3, - 1, 0 ], 3 ) );
+
+	_geometry.setAttribute( 'uv', new THREE.Float32BufferAttribute( [ 0, 2, 0, 0, 2, 0 ], 2 ) );
+
+	class FullScreenQuad {
+
+		constructor( material ) {
+
+			this._mesh = new THREE.Mesh( _geometry, material );
+
+		}
+
+		dispose() {
+
+			this._mesh.geometry.dispose();
+
+		}
+
+		render( renderer ) {
+
+			renderer.render( this._mesh, _camera );
+
+		}
+
+		get material() {
+
+			return this._mesh.material;
+
+		}
+
+		set material( value ) {
+
+			this._mesh.material = value;
+
+		}
+
+	}
+
+	THREE.EffectComposer = EffectComposer;
+	THREE.FullScreenQuad = FullScreenQuad;
+	THREE.Pass = Pass;
+
+} )();
+( function () {
+
+	class ShaderPass extends THREE.Pass {
+
+		constructor( shader, textureID ) {
+
+			super();
+			this.textureID = textureID !== undefined ? textureID : 'tDiffuse';
+
+			if ( shader instanceof THREE.ShaderMaterial ) {
+
+				this.uniforms = shader.uniforms;
+				this.material = shader;
+
+			} else if ( shader ) {
+
+				this.uniforms = THREE.UniformsUtils.clone( shader.uniforms );
+				this.material = new THREE.ShaderMaterial( {
+					defines: Object.assign( {}, shader.defines ),
+					uniforms: this.uniforms,
+					vertexShader: shader.vertexShader,
+					fragmentShader: shader.fragmentShader
+				} );
+
+			}
+
+			this.fsQuad = new THREE.FullScreenQuad( this.material );
+
+		}
+
+		render( renderer, writeBuffer, readBuffer
+			/*, deltaTime, maskActive */
+		) {
+
+			if ( this.uniforms[ this.textureID ] ) {
+
+				this.uniforms[ this.textureID ].value = readBuffer.texture;
+
+			}
+
+			this.fsQuad.material = this.material;
+
+			if ( this.renderToScreen ) {
+
+				renderer.setRenderTarget( null );
+				this.fsQuad.render( renderer );
+
+			} else {
+
+				renderer.setRenderTarget( writeBuffer ); // TODO: Avoid using autoClear properties, see https://github.com/mrdoob/three.js/pull/15571#issuecomment-465669600
+
+				if ( this.clear ) renderer.clear( renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil );
+				this.fsQuad.render( renderer );
+
+			}
+
+		}
+
+	}
+
+	THREE.ShaderPass = ShaderPass;
+
+} )();
+( function () {
+
+	class RenderPass extends THREE.Pass {
+
+		constructor( scene, camera, overrideMaterial, clearColor, clearAlpha ) {
+
+			super();
+			this.scene = scene;
+			this.camera = camera;
+			this.overrideMaterial = overrideMaterial;
+			this.clearColor = clearColor;
+			this.clearAlpha = clearAlpha !== undefined ? clearAlpha : 0;
+			this.clear = true;
+			this.clearDepth = false;
+			this.needsSwap = false;
+			this._oldClearColor = new THREE.Color();
+
+		}
+
+		render( renderer, writeBuffer, readBuffer
+			/*, deltaTime, maskActive */
+		) {
+
+			const oldAutoClear = renderer.autoClear;
+			renderer.autoClear = false;
+			let oldClearAlpha, oldOverrideMaterial;
+
+			if ( this.overrideMaterial !== undefined ) {
+
+				oldOverrideMaterial = this.scene.overrideMaterial;
+				this.scene.overrideMaterial = this.overrideMaterial;
+
+			}
+
+			if ( this.clearColor ) {
+
+				renderer.getClearColor( this._oldClearColor );
+				oldClearAlpha = renderer.getClearAlpha();
+				renderer.setClearColor( this.clearColor, this.clearAlpha );
+
+			}
+
+			if ( this.clearDepth ) {
+
+				renderer.clearDepth();
+
+			}
+
+			renderer.setRenderTarget( this.renderToScreen ? null : readBuffer ); // TODO: Avoid using autoClear properties, see https://github.com/mrdoob/three.js/pull/15571#issuecomment-465669600
+
+			if ( this.clear ) renderer.clear( renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil );
+			renderer.render( this.scene, this.camera );
+
+			if ( this.clearColor ) {
+
+				renderer.setClearColor( this._oldClearColor, oldClearAlpha );
+
+			}
+
+			if ( this.overrideMaterial !== undefined ) {
+
+				this.scene.overrideMaterial = oldOverrideMaterial;
+
+			}
+
+			renderer.autoClear = oldAutoClear;
+
+		}
+
+	}
+
+	THREE.RenderPass = RenderPass;
+
+} )();
+( function () {
+
+	/**
+ * UnrealBloomPass is inspired by the bloom pass of Unreal Engine. It creates a
+ * mip map chain of bloom textures and blurs them with different radii. Because
+ * of the weighted combination of mips, and because larger blurs are done on
+ * higher mips, this effect provides good quality and performance.
+ *
+ * Reference:
+ * - https://docs.unrealengine.com/latest/INT/Engine/Rendering/PostProcessEffects/Bloom/
+ */
+
+	class UnrealBloomPass extends THREE.Pass {
+
+		constructor( resolution, strength, radius, threshold ) {
+
+			super();
+			this.strength = strength !== undefined ? strength : 1;
+			this.radius = radius;
+			this.threshold = threshold;
+			this.resolution = resolution !== undefined ? new THREE.Vector2( resolution.x, resolution.y ) : new THREE.Vector2( 256, 256 ); // create color only once here, reuse it later inside the render function
+
+			this.clearColor = new THREE.Color( 0, 0, 0 ); // render targets
+
+			const pars = {
+				minFilter: THREE.LinearFilter,
+				magFilter: THREE.LinearFilter,
+				format: THREE.RGBAFormat
+			};
+			this.renderTargetsHorizontal = [];
+			this.renderTargetsVertical = [];
+			this.nMips = 5;
+			let resx = Math.round( this.resolution.x / 2 );
+			let resy = Math.round( this.resolution.y / 2 );
+			this.renderTargetBright = new THREE.WebGLRenderTarget( resx, resy, pars );
+			this.renderTargetBright.texture.name = 'UnrealBloomPass.bright';
+			this.renderTargetBright.texture.generateMipmaps = false;
+
+			for ( let i = 0; i < this.nMips; i ++ ) {
+
+				const renderTargetHorizonal = new THREE.WebGLRenderTarget( resx, resy, pars );
+				renderTargetHorizonal.texture.name = 'UnrealBloomPass.h' + i;
+				renderTargetHorizonal.texture.generateMipmaps = false;
+				this.renderTargetsHorizontal.push( renderTargetHorizonal );
+				const renderTargetVertical = new THREE.WebGLRenderTarget( resx, resy, pars );
+				renderTargetVertical.texture.name = 'UnrealBloomPass.v' + i;
+				renderTargetVertical.texture.generateMipmaps = false;
+				this.renderTargetsVertical.push( renderTargetVertical );
+				resx = Math.round( resx / 2 );
+				resy = Math.round( resy / 2 );
+
+			} // luminosity high pass material
+
+
+			if ( THREE.LuminosityHighPassShader === undefined ) console.error( 'THREE.UnrealBloomPass relies on THREE.LuminosityHighPassShader' );
+			const highPassShader = THREE.LuminosityHighPassShader;
+			this.highPassUniforms = THREE.UniformsUtils.clone( highPassShader.uniforms );
+			this.highPassUniforms[ 'luminosityThreshold' ].value = threshold;
+			this.highPassUniforms[ 'smoothWidth' ].value = 0.01;
+			this.materialHighPassFilter = new THREE.ShaderMaterial( {
+				uniforms: this.highPassUniforms,
+				vertexShader: highPassShader.vertexShader,
+				fragmentShader: highPassShader.fragmentShader,
+				defines: {}
+			} ); // Gaussian Blur Materials
+
+			this.separableBlurMaterials = [];
+			const kernelSizeArray = [ 3, 5, 7, 9, 11 ];
+			resx = Math.round( this.resolution.x / 2 );
+			resy = Math.round( this.resolution.y / 2 );
+
+			for ( let i = 0; i < this.nMips; i ++ ) {
+
+				this.separableBlurMaterials.push( this.getSeperableBlurMaterial( kernelSizeArray[ i ] ) );
+				this.separableBlurMaterials[ i ].uniforms[ 'texSize' ].value = new THREE.Vector2( resx, resy );
+				resx = Math.round( resx / 2 );
+				resy = Math.round( resy / 2 );
+
+			} // Composite material
+
+
+			this.compositeMaterial = this.getCompositeMaterial( this.nMips );
+			this.compositeMaterial.uniforms[ 'blurTexture1' ].value = this.renderTargetsVertical[ 0 ].texture;
+			this.compositeMaterial.uniforms[ 'blurTexture2' ].value = this.renderTargetsVertical[ 1 ].texture;
+			this.compositeMaterial.uniforms[ 'blurTexture3' ].value = this.renderTargetsVertical[ 2 ].texture;
+			this.compositeMaterial.uniforms[ 'blurTexture4' ].value = this.renderTargetsVertical[ 3 ].texture;
+			this.compositeMaterial.uniforms[ 'blurTexture5' ].value = this.renderTargetsVertical[ 4 ].texture;
+			this.compositeMaterial.uniforms[ 'bloomStrength' ].value = strength;
+			this.compositeMaterial.uniforms[ 'bloomRadius' ].value = 0.1;
+			this.compositeMaterial.needsUpdate = true;
+			const bloomFactors = [ 1.0, 0.8, 0.6, 0.4, 0.2 ];
+			this.compositeMaterial.uniforms[ 'bloomFactors' ].value = bloomFactors;
+			this.bloomTintColors = [ new THREE.Vector3( 1, 1, 1 ), new THREE.Vector3( 1, 1, 1 ), new THREE.Vector3( 1, 1, 1 ), new THREE.Vector3( 1, 1, 1 ), new THREE.Vector3( 1, 1, 1 ) ];
+			this.compositeMaterial.uniforms[ 'bloomTintColors' ].value = this.bloomTintColors; // copy material
+
+			if ( THREE.CopyShader === undefined ) {
+
+				console.error( 'THREE.UnrealBloomPass relies on THREE.CopyShader' );
+
+			}
+
+			const copyShader = THREE.CopyShader;
+			this.copyUniforms = THREE.UniformsUtils.clone( copyShader.uniforms );
+			this.copyUniforms[ 'opacity' ].value = 1.0;
+			this.materialCopy = new THREE.ShaderMaterial( {
+				uniforms: this.copyUniforms,
+				vertexShader: copyShader.vertexShader,
+				fragmentShader: copyShader.fragmentShader,
+				blending: THREE.AdditiveBlending,
+				depthTest: false,
+				depthWrite: false,
+				transparent: true
+			} );
+			this.enabled = true;
+			this.needsSwap = false;
+			this._oldClearColor = new THREE.Color();
+			this.oldClearAlpha = 1;
+			this.basic = new THREE.MeshBasicMaterial();
+			this.fsQuad = new THREE.FullScreenQuad( null );
+
+		}
+
+		dispose() {
+
+			for ( let i = 0; i < this.renderTargetsHorizontal.length; i ++ ) {
+
+				this.renderTargetsHorizontal[ i ].dispose();
+
+			}
+
+			for ( let i = 0; i < this.renderTargetsVertical.length; i ++ ) {
+
+				this.renderTargetsVertical[ i ].dispose();
+
+			}
+
+			this.renderTargetBright.dispose();
+
+		}
+
+		setSize( width, height ) {
+
+			let resx = Math.round( width / 2 );
+			let resy = Math.round( height / 2 );
+			this.renderTargetBright.setSize( resx, resy );
+
+			for ( let i = 0; i < this.nMips; i ++ ) {
+
+				this.renderTargetsHorizontal[ i ].setSize( resx, resy );
+				this.renderTargetsVertical[ i ].setSize( resx, resy );
+				this.separableBlurMaterials[ i ].uniforms[ 'texSize' ].value = new THREE.Vector2( resx, resy );
+				resx = Math.round( resx / 2 );
+				resy = Math.round( resy / 2 );
+
+			}
+
+		}
+
+		render( renderer, writeBuffer, readBuffer, deltaTime, maskActive ) {
+
+			renderer.getClearColor( this._oldClearColor );
+			this.oldClearAlpha = renderer.getClearAlpha();
+			const oldAutoClear = renderer.autoClear;
+			renderer.autoClear = false;
+			renderer.setClearColor( this.clearColor, 0 );
+			if ( maskActive ) renderer.state.buffers.stencil.setTest( false ); // Render input to screen
+
+			if ( this.renderToScreen ) {
+
+				this.fsQuad.material = this.basic;
+				this.basic.map = readBuffer.texture;
+				renderer.setRenderTarget( null );
+				renderer.clear();
+				this.fsQuad.render( renderer );
+
+			} // 1. Extract Bright Areas
+
+
+			this.highPassUniforms[ 'tDiffuse' ].value = readBuffer.texture;
+			this.highPassUniforms[ 'luminosityThreshold' ].value = this.threshold;
+			this.fsQuad.material = this.materialHighPassFilter;
+			renderer.setRenderTarget( this.renderTargetBright );
+			renderer.clear();
+			this.fsQuad.render( renderer ); // 2. Blur All the mips progressively
+
+			let inputRenderTarget = this.renderTargetBright;
+
+			for ( let i = 0; i < this.nMips; i ++ ) {
+
+				this.fsQuad.material = this.separableBlurMaterials[ i ];
+				this.separableBlurMaterials[ i ].uniforms[ 'colorTexture' ].value = inputRenderTarget.texture;
+				this.separableBlurMaterials[ i ].uniforms[ 'direction' ].value = UnrealBloomPass.BlurDirectionX;
+				renderer.setRenderTarget( this.renderTargetsHorizontal[ i ] );
+				renderer.clear();
+				this.fsQuad.render( renderer );
+				this.separableBlurMaterials[ i ].uniforms[ 'colorTexture' ].value = this.renderTargetsHorizontal[ i ].texture;
+				this.separableBlurMaterials[ i ].uniforms[ 'direction' ].value = UnrealBloomPass.BlurDirectionY;
+				renderer.setRenderTarget( this.renderTargetsVertical[ i ] );
+				renderer.clear();
+				this.fsQuad.render( renderer );
+				inputRenderTarget = this.renderTargetsVertical[ i ];
+
+			} // Composite All the mips
+
+
+			this.fsQuad.material = this.compositeMaterial;
+			this.compositeMaterial.uniforms[ 'bloomStrength' ].value = this.strength;
+			this.compositeMaterial.uniforms[ 'bloomRadius' ].value = this.radius;
+			this.compositeMaterial.uniforms[ 'bloomTintColors' ].value = this.bloomTintColors;
+			renderer.setRenderTarget( this.renderTargetsHorizontal[ 0 ] );
+			renderer.clear();
+			this.fsQuad.render( renderer ); // Blend it additively over the input texture
+
+			this.fsQuad.material = this.materialCopy;
+			this.copyUniforms[ 'tDiffuse' ].value = this.renderTargetsHorizontal[ 0 ].texture;
+			if ( maskActive ) renderer.state.buffers.stencil.setTest( true );
+
+			if ( this.renderToScreen ) {
+
+				renderer.setRenderTarget( null );
+				this.fsQuad.render( renderer );
+
+			} else {
+
+				renderer.setRenderTarget( readBuffer );
+				this.fsQuad.render( renderer );
+
+			} // Restore renderer settings
+
+
+			renderer.setClearColor( this._oldClearColor, this.oldClearAlpha );
+			renderer.autoClear = oldAutoClear;
+
+		}
+
+		getSeperableBlurMaterial( kernelRadius ) {
+
+			return new THREE.ShaderMaterial( {
+				defines: {
+					'KERNEL_RADIUS': kernelRadius,
+					'SIGMA': kernelRadius
+				},
+				uniforms: {
+					'colorTexture': {
+						value: null
+					},
+					'texSize': {
+						value: new THREE.Vector2( 0.5, 0.5 )
+					},
+					'direction': {
+						value: new THREE.Vector2( 0.5, 0.5 )
+					}
+				},
+				vertexShader: `varying vec2 vUv;
+				void main() {
+					vUv = uv;
+					gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+				}`,
+				fragmentShader: `#include <common>
+				varying vec2 vUv;
+				uniform sampler2D colorTexture;
+				uniform vec2 texSize;
+				uniform vec2 direction;
+
+				float gaussianPdf(in float x, in float sigma) {
+					return 0.39894 * exp( -0.5 * x * x/( sigma * sigma))/sigma;
+				}
+				void main() {
+					vec2 invSize = 1.0 / texSize;
+					float fSigma = float(SIGMA);
+					float weightSum = gaussianPdf(0.0, fSigma);
+					vec3 diffuseSum = texture2D( colorTexture, vUv).rgb * weightSum;
+					for( int i = 1; i < KERNEL_RADIUS; i ++ ) {
+						float x = float(i);
+						float w = gaussianPdf(x, fSigma);
+						vec2 uvOffset = direction * invSize * x;
+						vec3 sample1 = texture2D( colorTexture, vUv + uvOffset).rgb;
+						vec3 sample2 = texture2D( colorTexture, vUv - uvOffset).rgb;
+						diffuseSum += (sample1 + sample2) * w;
+						weightSum += 2.0 * w;
+					}
+					gl_FragColor = vec4(diffuseSum/weightSum, 1.0);
+				}`
+			} );
+
+		}
+
+		getCompositeMaterial( nMips ) {
+
+			return new THREE.ShaderMaterial( {
+				defines: {
+					'NUM_MIPS': nMips
+				},
+				uniforms: {
+					'blurTexture1': {
+						value: null
+					},
+					'blurTexture2': {
+						value: null
+					},
+					'blurTexture3': {
+						value: null
+					},
+					'blurTexture4': {
+						value: null
+					},
+					'blurTexture5': {
+						value: null
+					},
+					'dirtTexture': {
+						value: null
+					},
+					'bloomStrength': {
+						value: 1.0
+					},
+					'bloomFactors': {
+						value: null
+					},
+					'bloomTintColors': {
+						value: null
+					},
+					'bloomRadius': {
+						value: 0.0
+					}
+				},
+				vertexShader: `varying vec2 vUv;
+				void main() {
+					vUv = uv;
+					gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+				}`,
+				fragmentShader: `varying vec2 vUv;
+				uniform sampler2D blurTexture1;
+				uniform sampler2D blurTexture2;
+				uniform sampler2D blurTexture3;
+				uniform sampler2D blurTexture4;
+				uniform sampler2D blurTexture5;
+				uniform sampler2D dirtTexture;
+				uniform float bloomStrength;
+				uniform float bloomRadius;
+				uniform float bloomFactors[NUM_MIPS];
+				uniform vec3 bloomTintColors[NUM_MIPS];
+
+				float lerpBloomFactor(const in float factor) {
+					float mirrorFactor = 1.2 - factor;
+					return mix(factor, mirrorFactor, bloomRadius);
+				}
+
+				void main() {
+					gl_FragColor = bloomStrength * ( lerpBloomFactor(bloomFactors[0]) * vec4(bloomTintColors[0], 1.0) * texture2D(blurTexture1, vUv) +
+						lerpBloomFactor(bloomFactors[1]) * vec4(bloomTintColors[1], 1.0) * texture2D(blurTexture2, vUv) +
+						lerpBloomFactor(bloomFactors[2]) * vec4(bloomTintColors[2], 1.0) * texture2D(blurTexture3, vUv) +
+						lerpBloomFactor(bloomFactors[3]) * vec4(bloomTintColors[3], 1.0) * texture2D(blurTexture4, vUv) +
+						lerpBloomFactor(bloomFactors[4]) * vec4(bloomTintColors[4], 1.0) * texture2D(blurTexture5, vUv) );
+				}`
+			} );
+
+		}
+
+	}
+
+	UnrealBloomPass.BlurDirectionX = new THREE.Vector2( 1.0, 0.0 );
+	UnrealBloomPass.BlurDirectionY = new THREE.Vector2( 0.0, 1.0 );
+
+	THREE.UnrealBloomPass = UnrealBloomPass;
+
+} )();
+( function () {
+
+	class AfterimagePass extends THREE.Pass {
+
+		constructor( damp = 0.96 ) {
+
+			super();
+			if ( THREE.AfterimageShader === undefined ) console.error( 'THREE.AfterimagePass relies on THREE.AfterimageShader' );
+			this.shader = THREE.AfterimageShader;
+			this.uniforms = THREE.UniformsUtils.clone( this.shader.uniforms );
+			this.uniforms[ 'damp' ].value = damp;
+			this.textureComp = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight, {
+				minFilter: THREE.LinearFilter,
+				magFilter: THREE.NearestFilter,
+				format: THREE.RGBAFormat
+			} );
+			this.textureOld = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight, {
+				minFilter: THREE.LinearFilter,
+				magFilter: THREE.NearestFilter,
+				format: THREE.RGBAFormat
+			} );
+			this.shaderMaterial = new THREE.ShaderMaterial( {
+				uniforms: this.uniforms,
+				vertexShader: this.shader.vertexShader,
+				fragmentShader: this.shader.fragmentShader
+			} );
+			this.compFsQuad = new THREE.FullScreenQuad( this.shaderMaterial );
+			const material = new THREE.MeshBasicMaterial();
+			this.copyFsQuad = new THREE.FullScreenQuad( material );
+
+		}
+
+		render( renderer, writeBuffer, readBuffer
+			/*, deltaTime, maskActive*/
+		) {
+
+			this.uniforms[ 'tOld' ].value = this.textureOld.texture;
+			this.uniforms[ 'tNew' ].value = readBuffer.texture;
+			renderer.setRenderTarget( this.textureComp );
+			this.compFsQuad.render( renderer );
+			this.copyFsQuad.material.map = this.textureComp.texture;
+
+			if ( this.renderToScreen ) {
+
+				renderer.setRenderTarget( null );
+				this.copyFsQuad.render( renderer );
+
+			} else {
+
+				renderer.setRenderTarget( writeBuffer );
+				if ( this.clear ) renderer.clear();
+				this.copyFsQuad.render( renderer );
+
+			} // Swap buffers.
+
+
+			const temp = this.textureOld;
+			this.textureOld = this.textureComp;
+			this.textureComp = temp; // Now textureOld contains the latest image, ready for the next frame.
+
+		}
+
+		setSize( width, height ) {
+
+			this.textureComp.setSize( width, height );
+			this.textureOld.setSize( width, height );
+
+		}
+
+	}
+
+	THREE.AfterimagePass = AfterimagePass;
+
+} )();
+
+</script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const rand = (a=0,b=1) => a + Math.random()*(b-a);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ===== 基本セットアップ ===== */
+const canvas = $('#sky');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:false, alpha:false });
+const PR = Math.min(window.devicePixelRatio || 1, 1.5);
+renderer.setPixelRatio(PR);
+const scene = new THREE.Scene();
+const FOV = 55;
+const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 3000);
+camera.position.set(0, 45, 140);
+camera.lookAt(0, 55, 0);
+
+// 空のグラデーション
+(() => {
+  const c = document.createElement('canvas'); c.width = 2; c.height = 256;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0,0,0,256);
+  gr.addColorStop(0,'#04050f'); gr.addColorStop(.55,'#101848'); gr.addColorStop(1,'#272a5e');
+  g.fillStyle = gr; g.fillRect(0,0,2,256);
+  scene.background = new THREE.CanvasTexture(c);
+})();
+
+const VS = `
+attribute float aSize; attribute float aAlpha; attribute vec3 aColor;
+uniform float uScale;
+varying vec3 vColor; varying float vAlpha;
+void main(){
+  vec4 mv = modelViewMatrix * vec4(position,1.0);
+  gl_PointSize = max(aSize * uScale / -mv.z, 1.0);
+  gl_Position = projectionMatrix * mv;
+  vColor = aColor; vAlpha = aAlpha;
+}`;
+const FS = `
+varying vec3 vColor; varying float vAlpha;
+void main(){
+  vec2 c = gl_PointCoord - 0.5;
+  float d = length(c) * 2.0;
+  if (d > 1.0) discard;
+  float core = exp(-d*d*5.0);
+  float a = (core + (1.0-d)*0.25) * vAlpha;
+  vec3 col = vColor + vec3(pow(core,4.0) * 0.45);
+  gl_FragColor = vec4(col, a);
+}`;
+const uniforms = { uScale:{ value:1 } };
+const makeMat = () => new THREE.ShaderMaterial({ uniforms, vertexShader:VS, fragmentShader:FS,
+  transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
+
+/* ===== 星 ===== */
+const STARS = 800;
+const sPos=new Float32Array(STARS*3), sCol=new Float32Array(STARS*3), sA=new Float32Array(STARS), sS=new Float32Array(STARS), sSeed=new Float32Array(STARS);
+for(let i=0;i<STARS;i++){
+  sPos[i*3]=rand(-800,800); sPos[i*3+1]=rand(20,700); sPos[i*3+2]=rand(-500,-380);
+  const w=rand(.75,1); sCol[i*3]=w; sCol[i*3+1]=w*rand(.9,1); sCol[i*3+2]=rand(.85,1);
+  sS[i]=rand(1,2.4); sSeed[i]=rand(0,100); sA[i]=.5;
+}
+const starGeo=new THREE.BufferGeometry();
+starGeo.setAttribute('position',new THREE.BufferAttribute(sPos,3));
+starGeo.setAttribute('aColor',new THREE.BufferAttribute(sCol,3));
+starGeo.setAttribute('aAlpha',new THREE.BufferAttribute(sA,1));
+starGeo.setAttribute('aSize',new THREE.BufferAttribute(sS,1));
+const stars=new THREE.Points(starGeo,makeMat()); stars.frustumCulled=false; scene.add(stars);
+
+/* ===== 閃光（空が明るくなる） ===== */
+const flashMat = new THREE.ShaderMaterial({
+  uniforms:{ uC:{value:new THREE.Vector2()}, uCol:{value:new THREE.Color()}, uI:{value:0}, uR:{value:150} },
+  vertexShader:`varying vec2 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xy; gl_Position=projectionMatrix*viewMatrix*w; }`,
+  fragmentShader:`uniform vec2 uC; uniform vec3 uCol; uniform float uI; uniform float uR; varying vec2 vW;
+    void main(){ float d=length(vW-uC)/uR; float a=exp(-d*d*2.2)*uI; gl_FragColor=vec4(uCol*a,1.0); }`,
+  transparent:true, depthWrite:false, blending:THREE.AdditiveBlending
+});
+const flashMesh=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), flashMat);
+flashMesh.position.z=-80; scene.add(flashMesh);
+let flashLv=0;
+function flash(x,y,rgb,power){
+  if(reduceMotion) return;
+  flashMat.uniforms.uC.value.set(x,y*1.2);
+  flashMat.uniforms.uCol.value.setRGB(rgb[0],rgb[1],rgb[2]);
+  flashLv=Math.min(.55, .3*power);
+}
+
+/* ===== パーティクルプール ===== */
+const MAX=120000;
+const pos=new Float32Array(MAX*3), col=new Float32Array(MAX*3), alp=new Float32Array(MAX), siz=new Float32Array(MAX);
+const vel=new Float32Array(MAX*3), org=new Float32Array(MAX*3), tgt=new Float32Array(MAX*3);
+const age=new Float32Array(MAX), life=new Float32Array(MAX), p1=new Float32Array(MAX), p2=new Float32Array(MAX),
+      baseSize=new Float32Array(MAX), baseA=new Float32Array(MAX), seed=new Float32Array(MAX);
+const kind=new Uint8Array(MAX); // 0:なし 1:火花 2:画像粒 3:ロケット
+const bid=new Uint8Array(MAX);
+const geo=new THREE.BufferGeometry();
+const aPos=new THREE.BufferAttribute(pos,3), aCol=new THREE.BufferAttribute(col,3),
+      aAlp=new THREE.BufferAttribute(alp,1), aSiz=new THREE.BufferAttribute(siz,1);
+[aPos,aCol,aAlp,aSiz].forEach(a=>a.setUsage(THREE.DynamicDrawUsage));
+geo.setAttribute('position',aPos); geo.setAttribute('aColor',aCol);
+geo.setAttribute('aAlpha',aAlp); geo.setAttribute('aSize',aSiz);
+geo.setDrawRange(0,0);
+const points=new THREE.Points(geo,makeMat()); points.frustumCulled=false; scene.add(points);
+
+let cursor=0, hi=0;
+function alloc(){ const i=cursor; cursor++; if(cursor>=MAX) cursor=0; if(i+1>hi) hi=i+1; return i; }
+function setCol(i,r,g,b){ col[i*3]=r; col[i*3+1]=g; col[i*3+2]=b; }
+const G=14;
+function spark(x,y,z,vx,vy,vz,r,g,b,lf,drag,size,flick,a=1){
+  const i=alloc(), i3=i*3;
+  kind[i]=1; pos[i3]=x; pos[i3+1]=y; pos[i3+2]=z;
+  vel[i3]=vx; vel[i3+1]=vy; vel[i3+2]=vz;
+  setCol(i,r,g,b); age[i]=0; life[i]=lf; p1[i]=drag; p2[i]=flick;
+  baseSize[i]=size; baseA[i]=a; siz[i]=size; alp[i]=a;
+}
+function randDir(){ const u=rand(-1,1), t=rand(0,Math.PI*2), s=Math.sqrt(1-u*u); return [s*Math.cos(t), u, s*Math.sin(t)*.6]; }
+function hsl(h,s,l){ const c=new THREE.Color().setHSL(h,s,l); return [c.r,c.g,c.b]; }
+
+// 絵の花火ごとの傾き（ちょっとだけ3D）
+const BMAX=64;
+const bursts=Array.from({length:BMAX},()=>({t0:0,y0:0,p0:0,w:0,cy:1,sy:0,cp:1,sp:0}));
+let bCur=0;
+function newBurst(){
+  const k=bCur; bCur=(bCur+1)%BMAX; const b=bursts[k];
+  b.t0=clock; b.y0=rand(.45,.7)*(Math.random()<.5?-1:1); b.p0=rand(-.35,.35); b.w=rand(.05,.12)*(Math.random()<.5?-1:1);
+  return k;
+}
+function updateBursts(){
+  for(const b of bursts){
+    const a=clock-b.t0, e=Math.exp(-a*1.3);
+    const yaw=b.y0*e + b.w*Math.sin(a*1.4), pitch=b.p0*e;
+    b.cy=Math.cos(yaw); b.sy=Math.sin(yaw); b.cp=Math.cos(pitch); b.sp=Math.sin(pitch);
+  }
+}
+
+/* ===== 画面とワールド ===== */
+let W=1,H=1; const vis={left:-60,right:60,bottom:0,top:120};
+const _v=new THREE.Vector3();
+function worldAt(sx,sy,z=0){
+  _v.set((sx/W)*2-1, -(sy/H)*2+1, .5).unproject(camera);
+  _v.sub(camera.position).normalize();
+  const t=(z-camera.position.z)/_v.z;
+  return { x:camera.position.x+_v.x*t, y:camera.position.y+_v.y*t };
+}
+const visW=()=>vis.right-vis.left, visH=()=>vis.top-vis.bottom;
+
+/* ===== 町並みのシルエット（花火より手前） ===== */
+let townMeshes=[];
+function buildTown(){
+  townMeshes.forEach(m=>{ scene.remove(m); m.geometry.dispose(); });
+  townMeshes=[];
+  const layers=[{z:6,color:0x080b22,h:.17,smooth:true},{z:14,color:0x020309,h:.11,smooth:false}];
+  for(const L of layers){
+    const tl=worldAt(0,0,L.z), br=worldAt(W,H,L.z);
+    const left=tl.x-10, right=br.x+10, bot=br.y-10, Ht=(tl.y-br.y)*L.h;
+    const s=new THREE.Shape(); s.moveTo(left,bot);
+    let sd=L.smooth?3:11; const pr=()=>{ sd=(sd*16807)%2147483647; return sd/2147483647; };
+    const N=L.smooth?80:70, step=(right-left)/N;
+    for(let k=0;k<=N;k++){
+      const x0=left+k*step;
+      const base=br.y+Ht*(.5+.22*Math.sin(k*.21+L.z)+.12*Math.sin(k*.63));
+      if(L.smooth){ s.lineTo(x0,base+Ht*.25); continue; }
+      const r=pr();
+      if(r<.07){ s.lineTo(x0,base); s.lineTo(x0+step*.5,base+Ht*.75); s.lineTo(x0+step,base); }
+      else { const hh=r<.4?base+Ht*.35*pr():base; s.lineTo(x0,hh); s.lineTo(x0+step,hh); }
+    }
+    s.lineTo(right,bot); s.lineTo(left,bot);
+    const m=new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshBasicMaterial({color:L.color}));
+    m.position.z=L.z; scene.add(m); townMeshes.push(m);
+  }
+}
+
+/* ===== ポストエフェクト ===== */
+let composer=null, bloomPass=null, afterPass=null;
+let trailOn=true, bloomOn=true;
+if(THREE.EffectComposer && THREE.UnrealBloomPass && THREE.AfterimagePass){
+  try{
+    composer=new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene,camera));
+    afterPass=new THREE.AfterimagePass(.86);
+    composer.addPass(afterPass);
+    bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(256,256), 1.0, .55, .2);
+    composer.addPass(bloomPass);
+  }catch(e){ console.warn(e); composer=null; }
+}
+
+function resize(){
+  W=window.innerWidth; H=window.innerHeight;
+  renderer.setSize(W,H,false);
+  camera.aspect=W/H; camera.updateProjectionMatrix();
+  uniforms.uScale.value=(H*renderer.getPixelRatio())/(2*Math.tan(FOV*Math.PI/360));
+  const tl=worldAt(0,0), br=worldAt(W,H);
+  vis.left=tl.x; vis.right=br.x; vis.top=tl.y; vis.bottom=br.y;
+  if(composer){ composer.setPixelRatio(PR); composer.setSize(W,H); }
+  buildTown();
+}
+window.addEventListener('resize',resize); resize();
+
+/* ===== 音 ===== */
+let actx=null, master=null, noiseBuf=null, recDest=null, soundOn=true;
+function initAudio(){
+  if(actx){ if(actx.state==='suspended') actx.resume(); return; }
+  const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+  actx=new AC();
+  const comp=actx.createDynamicsCompressor();
+  master=actx.createGain(); master.gain.value=.7;
+  master.connect(comp); comp.connect(actx.destination);
+  if(actx.createMediaStreamDestination){ recDest=actx.createMediaStreamDestination(); comp.connect(recDest); }
+  noiseBuf=actx.createBuffer(1,actx.sampleRate*2,actx.sampleRate);
+  const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+}
+const canPlay=()=>soundOn && actx && actx.state==='running';
+function noise(){ const s=actx.createBufferSource(); s.buffer=noiseBuf; return s; }
+function sLaunch(dur){
+  if(!canPlay()) return;
+  const t=actx.currentTime;
+  const n=noise(), bp=actx.createBiquadFilter(), g=actx.createGain();
+  bp.type='bandpass'; bp.Q.value=1.5;
+  bp.frequency.setValueAtTime(700,t); bp.frequency.exponentialRampToValueAtTime(3200,t+dur);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.08,t+.08); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  n.connect(bp).connect(g).connect(master); n.start(t,rand(0,1)); n.stop(t+dur+.05);
+  if(Math.random()<.45){
+    const o=actx.createOscillator(), og=actx.createGain();
+    o.frequency.setValueAtTime(rand(700,900),t); o.frequency.exponentialRampToValueAtTime(rand(1900,2400),t+dur);
+    og.gain.setValueAtTime(.0001,t); og.gain.exponentialRampToValueAtTime(.022,t+.15); og.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(og).connect(master); o.start(t); o.stop(t+dur+.05);
+  }
+}
+function sBoom(power){
+  if(!canPlay()) return;
+  const t=actx.currentTime+.04;
+  const n=noise(), lp=actx.createBiquadFilter(), g=actx.createGain();
+  lp.type='lowpass';
+  lp.frequency.setValueAtTime(900+800*power,t); lp.frequency.exponentialRampToValueAtTime(100,t+1.1);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.75*power,t+.012); g.gain.exponentialRampToValueAtTime(.0001,t+1.6+power*.6);
+  n.connect(lp).connect(g).connect(master); n.start(t,rand(0,.5)); n.stop(t+2.4);
+  const o=actx.createOscillator(), og=actx.createGain();
+  o.frequency.setValueAtTime(120-35*power,t); o.frequency.exponentialRampToValueAtTime(30,t+.45);
+  og.gain.setValueAtTime(.6*power,t); og.gain.exponentialRampToValueAtTime(.0001,t+.7);
+  o.connect(og).connect(master); o.start(t); o.stop(t+.75);
+}
+function sCrackle(delay,count){
+  if(!canPlay()) return;
+  const t0=actx.currentTime+delay;
+  for(let k=0;k<count;k++){
+    const t=t0+rand(0,1.6);
+    const n=noise(), hp=actx.createBiquadFilter(), g=actx.createGain();
+    hp.type='highpass'; hp.frequency.value=2500; g.gain.value=rand(.04,.13);
+    n.connect(hp).connect(g).connect(master); n.start(t,rand(0,1.9)); n.stop(t+rand(.01,.03));
+  }
+}
+
+/* ===== 観客の歓声・拍手（合成） ===== */
+let cheerOn=true, lastCheer=-9;
+// 母音のフォルマント [開始] → [到達]
+const VOWELS={
+  o:{ from:[[330,1],[680,.5],[2500,.3]], to:[[460,1],[860,.6],[2600,.3]] },    // おお〜
+  a:{ from:[[300,1],[650,.45],[2400,.3]], to:[[760,1],[1220,.7],[2700,.35]] },  // わぁ〜
+  e:{ from:[[380,1],[1700,.4],[2500,.3]], to:[[560,1],[1750,.55],[2600,.35]] }  // へぇ〜
+};
+function voiceTo(node, pan){
+  if(actx.createStereoPanner){ const p=actx.createStereoPanner(); p.pan.value=pan; node.connect(p); return p; }
+  return node;
+}
+function sCheer(strength,delay){
+  if(!canPlay()||!cheerOn) return;
+  const now=actx.currentTime;
+  if(now-lastCheer<2) return;
+  lastCheer=now;
+  const t0=now+delay, keys=Object.keys(VOWELS), mainV=Math.random()<.75?(Math.random()<.5?'o':'a'):'e';
+  const out=actx.createGain(); out.gain.value=2.4*strength; out.connect(master);
+  const voices=Math.round(10+10*strength);
+  for(let v=0;v<voices;v++){
+    const vw=VOWELS[Math.random()<.8?mainV:keys[Math.floor(Math.random()*keys.length)]];
+    const st=t0+rand(0,.35), dur=rand(1.1,2)*(.85+.3*strength);
+    const female=Math.random()<.5, f0=female?rand(210,340):rand(105,175);
+    const osc=actx.createOscillator(); osc.type='sawtooth';
+    osc.frequency.setValueAtTime(f0*.9,st);
+    osc.frequency.linearRampToValueAtTime(f0*rand(1.12,1.35),st+dur*.35);
+    osc.frequency.linearRampToValueAtTime(f0*rand(.72,.85),st+dur);
+    const lfo=actx.createOscillator(), lg=actx.createGain();
+    lfo.frequency.value=rand(4.5,6.5); lg.gain.value=f0*.025; lfo.connect(lg).connect(osc.frequency);
+    const vg=actx.createGain();
+    vg.gain.setValueAtTime(.0001,st);
+    vg.gain.exponentialRampToValueAtTime(rand(.05,.09),st+rand(.15,.3));
+    vg.gain.setValueAtTime(rand(.04,.07),st+dur*.55);
+    vg.gain.exponentialRampToValueAtTime(.0001,st+dur);
+    vw.from.forEach(([f,g],k)=>{
+      const bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=4;
+      bp.frequency.setValueAtTime(f*(female?1.12:1),st);
+      bp.frequency.linearRampToValueAtTime(vw.to[k][0]*(female?1.12:1),st+.18);
+      const fg=actx.createGain(); fg.gain.value=g;
+      osc.connect(bp).connect(fg).connect(vg);
+    });
+    voiceTo(vg,rand(-.85,.85)).connect(out);
+    osc.start(st); osc.stop(st+dur+.05); lfo.start(st); lfo.stop(st+dur+.05);
+  }
+  // 息まじりのざわめき
+  const n=noise(), bp=actx.createBiquadFilter(), g=actx.createGain();
+  bp.type='bandpass'; bp.frequency.value=900; bp.Q.value=.8;
+  g.gain.setValueAtTime(.0001,t0); g.gain.exponentialRampToValueAtTime(.025*strength,t0+.3); g.gain.exponentialRampToValueAtTime(.0001,t0+2.2);
+  n.connect(bp).connect(g).connect(out); n.start(t0,rand(0,1)); n.stop(t0+2.3);
+}
+function sApplause(delay,dur,strength){
+  if(!canPlay()||!cheerOn) return;
+  const t0=actx.currentTime+delay, count=Math.round(55*dur*strength);
+  const out=actx.createGain(); out.gain.value=.9; out.connect(master);
+  for(let k=0;k<count;k++){
+    const u=Math.pow(Math.random(),1.5), t=t0+u*dur;
+    const src=noise(), bp=actx.createBiquadFilter(), g=actx.createGain();
+    bp.type='bandpass'; bp.frequency.value=rand(900,2800); bp.Q.value=rand(.6,1.3);
+    const amp=rand(.35,.8)*(1-u*.7)*strength;
+    g.gain.setValueAtTime(amp,t); g.gain.exponentialRampToValueAtTime(.0001,t+rand(.05,.09));
+    src.connect(bp).connect(g); voiceTo(g,rand(-.9,.9)).connect(out);
+    src.start(t,rand(0,1.9)); src.stop(t+.1);
+  }
+}
+
+/* ===== 打ち上げ ===== */
+const rockets=[];
+function launch(x,y,payload){
+  const i=alloc(), i3=i*3;
+  kind[i]=3; setCol(i,1,.82,.5); siz[i]=1.7; alp[i]=1;
+  const y0=vis.bottom-2;
+  pos[i3]=x; pos[i3+1]=y0; pos[i3+2]=0;
+  const dur=rand(1.2,1.5)+payload.mul*.15;
+  rockets.push({i,x0:x,y0,ty:y,t:0,dur,payload,wob:rand(0,6)});
+  sLaunch(dur);
+}
+function updateRockets(dt){
+  for(let k=rockets.length-1;k>=0;k--){
+    const r=rockets[k]; r.t+=dt;
+    const u=Math.min(1,r.t/r.dur), e=1-(1-u)*(1-u);
+    const x=r.x0+Math.sin(r.t*9+r.wob)*.35, y=r.y0+(r.ty-r.y0)*e;
+    const i3=r.i*3; pos[i3]=x; pos[i3+1]=y;
+    for(let n=0;n<2;n++)
+      spark(x+rand(-.3,.3),y-rand(0,1),0, rand(-1.5,1.5),rand(-4,-1),0, 1,rand(.6,.8),rand(.3,.45), rand(.4,.8),2.5,rand(.5,.9),.5,.8);
+    if(u>=1){ kind[r.i]=0; alp[r.i]=0; rockets.splice(k,1); explode(r.payload,x,y); }
+  }
+}
+function explode(p,x,y){
+  if(p.type==='image') return burstImage(p.data,x,y,p.mul);
+  if(p.type==='willow') return burstWillow(x,y,p.mul);
+  return burstPeony(x,y,p.mul);
+}
+function burstPeony(x,y,mul){
+  const h1=Math.random(), h2=(h1+rand(.1,.5))%1, two=Math.random()<.5;
+  const n=Math.round(380*clamp(mul,.6,1.5)), sp=rand(40,48)*mul, sz=1.2*(.75+.25*mul);
+  for(let k=0;k<n;k++){
+    const d=randDir(), v=sp*rand(.88,1.08), c=hsl(two&&k%2?h2:h1,.95,.62);
+    spark(x,y,0, d[0]*v,d[1]*v,d[2]*v, c[0],c[1],c[2], rand(1.6,2.4),1.7,sz*rand(.85,1.15), Math.random()<.35?.7:0);
+  }
+  flash(x,y,hsl(h1,.9,.6),mul); sBoom(.55+.45*mul); sCrackle(1.1,Math.round(14*mul));
+  if(mul>1.15 && Math.random()<.55) sCheer(.45*mul,.3);
+}
+function burstWillow(x,y,mul){
+  const n=Math.round(300*clamp(mul,.6,1.5)), sz=1*(.75+.25*mul);
+  for(let k=0;k<n;k++){
+    const d=randDir(), v=rand(28,34)*mul;
+    spark(x,y,0, d[0]*v,d[1]*v,d[2]*v, 1,rand(.68,.8),rand(.3,.42), rand(3,4.2),1.05,sz*rand(.8,1.1),.45,.9);
+  }
+  flash(x,y,[1,.78,.45],mul); sBoom(.6+.45*mul); sCrackle(1.6,Math.round(26*mul));
+  if(mul>1.1 && Math.random()<.5) sCheer(.45*mul,.5);
+}
+const imgS=mul=>Math.min(52*mul, visW()*.92, visH()*.58);
+// 色なしで描いた絵に、打ち上げごとに配色をつける
+const _tc=new THREE.Color();
+function makeTint(){
+  const sch=Math.floor(Math.random()*5), h0=Math.random(), h1=(h0+rand(.3,.6))%1;
+  const C=(h,s,l)=>{ _tc.setHSL(((h%1)+1)%1,s,l); return [_tc.r,_tc.g,_tc.b]; };
+  return (x,y)=>{
+    switch(sch){
+      case 0: return C(h0+Math.hypot(x,y)*.7, .95, .62);              // 中心から虹色の輪
+      case 1: return C(h0+(y+.5)*.45, .95, .62);                       // 上下グラデーション
+      case 2: return Math.floor((Math.atan2(y,x)+Math.PI)/(Math.PI/3))%2 ? C(h0,.95,.62) : C(h1,.95,.65); // 二色の放射
+      case 3: return Math.random()<.18 ? C(Math.random(),.9,.7) : [1,.78+rand(0,.08),.42]; // 金に色粒
+      default: return Math.hypot(x,y)<.22 ? [1,.95,.85] : C(h0+rand(-.03,.03),.95,.6);    // 白い芯＋単色
+    }
+  };
+}
+function burstImage(data,cx,cy,mul){
+  const S=imgS(mul), P=data.pts, n=P.length/6, dots=data.mode==='dots';
+  const tint=data.tint?makeTint():null;
+  const sz=S*data.spacing*(dots?1.9:2.5), a0=dots?.6:.95;
+  const b=newBurst();
+  for(let k=0;k<n;k++){
+    const i=alloc(), i3=i*3, o=k*6;
+    kind[i]=2; bid[i]=b;
+    org[i3]=cx+rand(-.6,.6); org[i3+1]=cy+rand(-.6,.6); org[i3+2]=0;
+    tgt[i3]=cx+P[o]*S; tgt[i3+1]=cy+P[o+1]*S; tgt[i3+2]=P[o+5]*S;
+    pos[i3]=org[i3]; pos[i3+1]=org[i3+1]; pos[i3+2]=0;
+    if(tint){ const c=tint(P[o],P[o+1]); setCol(i,c[0],c[1],c[2]); } else setCol(i,P[o+2],P[o+3],P[o+4]);
+    age[i]=-rand(0,.06); p1[i]=rand(.7,.9); p2[i]=p1[i]+rand(1.9,2.4);
+    baseSize[i]=sz; baseA[i]=a0; seed[i]=rand(0,100); alp[i]=0; siz[i]=sz;
+  }
+  let pal=data.palette;
+  if(tint){ pal=[]; for(let k=0;k<8;k++){ const o=Math.floor(Math.random()*n)*6; pal.push(tint(P[o],P[o+1])); } }
+  for(let k=0;k<Math.round(170*clamp(mul,.6,1.4));k++){
+    const d=randDir(), v=S*rand(.78,.92), c=pal[k%pal.length];
+    spark(cx,cy,0, d[0]*v,d[1]*v,d[2]*v*.5, c[0],c[1],c[2], rand(1,1.5),2.2,rand(.9,1.2)*(.75+.25*mul),.3,.8);
+  }
+  flash(cx,cy,pal[0],mul*1.2); sBoom(.65+.5*mul); sCrackle(2.4,Math.round(30*mul));
+  sCheer(.55+.4*mul,.25);
+  if(Math.random()<.6) sApplause(2.3,rand(2,3),.6+.3*mul);
+}
+
+/* ===== 更新 ===== */
+function update(dt){
+  updateRockets(dt);
+  updateBursts();
+  let alive=0;
+  for(let i=0;i<hi;i++){
+    const k=kind[i]; if(k===0) continue; alive++;
+    if(k===3) continue;
+    const i3=i*3;
+    if(k===1){
+      const a=(age[i]+=dt);
+      if(a>=life[i]){ kind[i]=0; alp[i]=0; continue; }
+      const dr=Math.exp(-p1[i]*dt);
+      vel[i3]*=dr; vel[i3+1]=vel[i3+1]*dr-G*dt; vel[i3+2]*=dr;
+      pos[i3]+=vel[i3]*dt; pos[i3+1]+=vel[i3+1]*dt; pos[i3+2]+=vel[i3+2]*dt;
+      const t=a/life[i];
+      let al=baseA[i]*Math.pow(1-t,1.3);
+      if(p2[i]>0) al*=1-p2[i]*Math.random();
+      alp[i]=al; siz[i]=baseSize[i]*(.55+.45*(1-t));
+    } else {
+      const a=(age[i]+=dt);
+      if(a<0){ alp[i]=0; continue; }
+      const E=p1[i], Hh=p2[i], b=bursts[bid[i]];
+      const dx=tgt[i3]-org[i3], dy=tgt[i3+1]-org[i3+1], dz=tgt[i3+2]-org[i3+2];
+      let f, drop=0;
+      if(a<E){
+        const u=a/E; f=1-Math.pow(1-u,3);
+        const v=clamp((u-.12)/.45,0,1); alp[i]=baseA[i]*v*v*(3-2*v); siz[i]=baseSize[i]*(.6+.4*f);
+      } else if(a<Hh){
+        const s=a-E; f=1+.035*s; drop=.9*s*s;
+        alp[i]=baseA[i]*(.8+.2*Math.sin(seed[i]*31+a*16)); siz[i]=baseSize[i];
+      } else {
+        const s=Hh-E;
+        // 回転後の向きに散る
+        const ry=dy*b.cp-dz*b.sp, rz0=dy*b.sp+dz*b.cp, rx=dx*b.cy+rz0*b.sy, rz=-dx*b.sy+rz0*b.cy;
+        kind[i]=1; age[i]=0; life[i]=rand(1,2.4); p1[i]=1.2; p2[i]=.45;
+        vel[i3]=rx*.04+rand(-1.6,1.6); vel[i3+1]=ry*.04+rand(-1.6,1.6)-1.8*s; vel[i3+2]=rz*.04+rand(-1,1);
+        baseSize[i]*=.85;
+        continue;
+      }
+      const lx=dx*f, ly=dy*f, lz=dz*f;
+      const y1=ly*b.cp-lz*b.sp, z1=ly*b.sp+lz*b.cp;
+      pos[i3]=org[i3]+lx*b.cy+z1*b.sy;
+      pos[i3+1]=org[i3+1]+y1-drop;
+      pos[i3+2]=org[i3+2]-lx*b.sy+z1*b.cy;
+    }
+  }
+  if(alive===0 && rockets.length===0){ cursor=0; hi=0; }
+  const n=hi;
+  geo.setDrawRange(0,n);
+  for(const [at,sz] of [[aPos,3],[aCol,3],[aAlp,1],[aSiz,1]]){
+    at.updateRange.offset=0; at.updateRange.count=n*sz; at.needsUpdate=true;
+  }
+}
+
+/* ===== 画像解析 ===== */
+let mode='dots', density=100, removeBg=true, sizeMul=1;
+function liftColor(r,g,b,minV,blackTo){
+  r/=255; g/=255; b/=255;
+  const m=Math.max(r,g,b);
+  if(m<minV){ if(m<.04) return blackTo.slice(); const k=minV/m; r*=k; g*=k; b*=k; }
+  const av=(r+g+b)/3;
+  return [clamp(av+(r-av)*1.25,0,1), clamp(av+(g-av)*1.25,0,1), clamp(av+(b-av)*1.25,0,1)];
+}
+function analyze(src,isText){
+  const N=Math.round((mode==='dots'?density:density*1.6)*(isText?1.6:1));
+  const iw=src.naturalWidth||src.width, ih=src.naturalHeight||src.height;
+  const sc=N/Math.max(iw,ih);
+  const w=Math.max(2,Math.round(iw*sc)), h=Math.max(2,Math.round(ih*sc));
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  const cx=cv.getContext('2d',{willReadFrequently:true});
+  cx.drawImage(src,0,0,w,h);
+  const d=cx.getImageData(0,0,w,h).data;
+  const fg=new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) fg[i]=d[i*4+3]>=110?1:0;
+  if(removeBg && !isText){
+    const buckets=new Map(); let total=0;
+    const addB=(x,y)=>{ const i=y*w+x; if(!fg[i]) return; total++;
+      const o=i*4, key=(d[o]>>4)<<8|(d[o+1]>>4)<<4|(d[o+2]>>4);
+      let b=buckets.get(key); if(!b){ b=[0,0,0,0]; buckets.set(key,b); }
+      b[0]++; b[1]+=d[o]; b[2]+=d[o+1]; b[3]+=d[o+2]; };
+    for(let x=0;x<w;x++){ addB(x,0); addB(x,h-1); }
+    for(let y=1;y<h-1;y++){ addB(0,y); addB(w-1,y); }
+    let best=null; buckets.forEach(b=>{ if(!best||b[0]>best[0]) best=b; });
+    if(best && best[0]>=total*.3){
+      const br=best[1]/best[0], bgc=best[2]/best[0], bb=best[3]/best[0], tol=58*58;
+      const near=i=>{ const o=i*4, a=d[o]-br, b=d[o+1]-bgc, c=d[o+2]-bb; return a*a+b*b+c*c<tol; };
+      const seen=new Uint8Array(w*h), st=[];
+      const push=i=>{ if(!seen[i]&&fg[i]&&near(i)){ seen[i]=1; st.push(i); } };
+      for(let x=0;x<w;x++){ push(x); push((h-1)*w+x); }
+      for(let y=0;y<h;y++){ push(y*w); push(y*w+w-1); }
+      while(st.length){
+        const i=st.pop(); fg[i]=0;
+        const x=i%w, y=(i-x)/w;
+        if(x>0) push(i-1); if(x<w-1) push(i+1); if(y>0) push(i-w); if(y<h-1) push(i+w);
+      }
+    }
+  }
+  const lum=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++){ const o=i*4; lum[i]=(d[o]*.299+d[o+1]*.587+d[o+2]*.114)/255; }
+  const out=[], maxSide=Math.max(w,h);
+  const add=(x,y,c,z)=>out.push((x-w/2+.5)/maxSide, -(y-h/2+.5)/maxSide, c[0],c[1],c[2], z);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const i=y*w+x; if(!fg[i]) continue; const o=i*4;
+    if(mode==='dots'){
+      add(x,y,liftColor(d[o],d[o+1],d[o+2],.24,[.24,.19,.14]), (lum[i]-.5)*.12+rand(-.01,.01));
+    } else {
+      let edge=x===0||y===0||x===w-1||y===h-1||!fg[i-1]||!fg[i+1]||!fg[i-w]||!fg[i+w];
+      if(!edge){
+        const gx=-lum[i-w-1]-2*lum[i-1]-lum[i+w-1]+lum[i-w+1]+2*lum[i+1]+lum[i+w+1];
+        const gy=-lum[i-w-1]-2*lum[i-w]-lum[i-w+1]+lum[i+w-1]+2*lum[i+w]+lum[i+w+1];
+        edge=gx*gx+gy*gy>.3;
+      }
+      if(edge) add(x,y,liftColor(d[o],d[o+1],d[o+2],.72,[1,.83,.55]), rand(-.015,.015));
+    }
+  }
+  const CAP=mode==='dots'?15000:10000;
+  let pts=out, n=out.length/6;
+  if(n>CAP){
+    const keep=CAP/n, sel=[];
+    for(let k=0;k<n;k++) if(Math.random()<keep) for(let j=0;j<6;j++) sel.push(out[k*6+j]);
+    pts=sel; n=sel.length/6;
+  }
+  if(n===0) return null;
+  const P=new Float32Array(pts), palette=[];
+  for(let k=0;k<8;k++){
+    const o=Math.floor(Math.random()*n)*6;
+    const c=[P[o+2],P[o+3],P[o+4]], m=Math.max(...c);
+    palette.push(m<.1?[1,.82,.55]:c.map(v=>Math.min(1,v*(.85/m))));
+  }
+  return { pts:P, spacing:1/maxSide, mode, palette, count:n };
+}
+
+/* ===== 登録した花火 ===== */
+const entries=[]; let selected='normal', nextId=1;
+function addEntry(src,kindName,label,thumb){
+  const e={ id:'e'+(nextId++), kind:kindName, src, label, thumb, data:null };
+  e.data=analyzeEntry(e);
+  if(!e.data){ toast(kindName!=='img'?'文字を読み取れませんでした':'絵の部分が見つかりません。設定の「絵の背景を消す」を外してみてください'); return null; }
+  entries.push(e); selected=e.id; renderChips(); updateInfo();
+  return e;
+}
+function analyzeEntry(e){ const d=analyze(e.src, e.kind!=='img'); if(d && e.kind==='draw') d.tint=true; return d; }
+function reanalyzeAll(){ entries.forEach(e=>{ e.data=analyzeEntry(e); }); updateInfo(); }
+function updateInfo(){
+  const e=entries.find(x=>x.id===selected);
+  $('#info').textContent = e && e.data ? `選択中：${e.data.count.toLocaleString()} 粒` : '';
+}
+function renderChips(){
+  const box=$('#chips'); const keep=box.scrollLeft; box.textContent='';
+  const mk=(id,cls,content,isEntry)=>{
+    const wrap=document.createElement('div'); wrap.className='chipwrap'+(selected===id?' sel':'');
+    const b=document.createElement('button'); b.type='button'; b.className='chip '+cls;
+    b.setAttribute('aria-pressed',String(selected===id));
+    if(content instanceof Node) b.appendChild(content); else b.textContent=content;
+    b.addEventListener('click',()=>{ selected=id; renderChips(); updateInfo(); });
+    wrap.appendChild(b);
+    if(isEntry){
+      const x=document.createElement('button'); x.type='button'; x.className='x'; x.textContent='×';
+      x.setAttribute('aria-label','この花火を外す');
+      x.addEventListener('click',()=>{ const k=entries.findIndex(e=>e.id===id); if(k>=0) entries.splice(k,1);
+        selected='normal'; renderChips(); updateInfo(); });
+      wrap.appendChild(x);
+    }
+    box.appendChild(wrap);
+  };
+  mk('normal','','ふつう',false);
+  for(const e of entries){
+    if(e.kind!=='text'){ const im=new Image(); im.src=e.thumb; im.alt=''; mk(e.id,'thumb',im,true); }
+    else mk(e.id,'text',e.label,true);
+  }
+  box.scrollLeft=keep;
+  const sel=box.querySelector('.chipwrap.sel');
+  if(sel){
+    const l=sel.offsetLeft, r=l+sel.offsetWidth;
+    if(l<box.scrollLeft) box.scrollLeft=l-10;
+    else if(r>box.scrollLeft+box.clientWidth) box.scrollLeft=r-box.clientWidth+10;
+  }
+  updateChipFade();
+}
+
+/* ===== 文字 → 画像 ===== */
+async function makeTextCanvas(text,style){
+  try{ await document.fonts.load('900 120px "Zen Maru Gothic"'); }catch(e){}
+  const fs=120, pad=20;
+  const c=document.createElement('canvas'), g=c.getContext('2d');
+  const font=`900 ${fs}px "Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif`;
+  g.font=font;
+  const tw=Math.ceil(g.measureText(text).width);
+  c.width=tw+pad*2; c.height=Math.ceil(fs*1.25)+pad*2;
+  g.font=font; g.textBaseline='middle';
+  let fill;
+  if(style==='rainbow'){
+    fill=g.createLinearGradient(pad,0,pad+tw,0);
+    for(let k=0;k<=6;k++) fill.addColorStop(k/6,`hsl(${k*55},95%,62%)`);
+  } else {
+    const st={ gold:['#ffdf7a','#ff9418'], sakura:['#ffe0ef','#ff5fa8'], sky:['#dff6ff','#3f9bff'] }[style];
+    fill=g.createLinearGradient(0,pad,0,c.height-pad); fill.addColorStop(0,st[0]); fill.addColorStop(1,st[1]);
+  }
+  g.fillStyle=fill; g.fillText(text,pad,c.height/2);
+  return c;
+}
+async function addText(){
+  const t=$('#textIn').value.trim();
+  if(!t){ $('#textIn').focus(); return; }
+  const c=await makeTextCanvas(t,$('#textColor').value);
+  const e=addEntry(c,'text',t,null);
+  $('#textIn').value=''; $('#textForm').hidden=true;
+  if(e) launchEntry(e,0,(vis.bottom+vis.top)/2+10,sizeMul);
+}
+$('#textOk').addEventListener('click',()=>{ initAudio(); addText(); });
+$('#textIn').addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.isComposing){ initAudio(); addText(); } });
+$('#textCancel').addEventListener('click',()=>{ $('#textForm').hidden=true; });
+
+/* ===== 打ち上げ指示 ===== */
+function launchEntry(e,x,y,mul){
+  if(!e||!e.data) return;
+  const S=imgS(mul);
+  const xx=clamp(x, vis.left+S*.5, vis.right-S*.5);
+  const yMin=vis.bottom+visH()*.24+S*.5, yMax=vis.top-S*.55;
+  const yy=yMin<yMax?clamp(y,yMin,yMax):(vis.bottom+vis.top)/2+S*.1;
+  launch(xx,yy,{type:'image',data:e.data,mul});
+}
+function launchGeneric(x,y,mul){
+  const r=27*mul;
+  const yy=clamp(y, Math.min(vis.bottom+visH()*.4, vis.top-r), vis.top-r);
+  launch(clamp(x,vis.left+r*.6,vis.right-r*.6), yy, {type:Math.random()<.3?'willow':'peony', mul});
+}
+let hintShown=true;
+canvas.addEventListener('pointerdown',ev=>{
+  initAudio();
+  const p=worldAt(ev.clientX,ev.clientY);
+  const e=entries.find(x=>x.id===selected);
+  if(e) launchEntry(e,p.x,p.y,sizeMul); else launchGeneric(p.x,p.y,sizeMul);
+  if(hintShown){ hintShown=false; $('#hint').style.opacity='0'; }
+});
+
+/* ===== 自動連発（サイズはランダム） ===== */
+let autoOn=false, autoT=.3;
+function autoStep(dt){
+  if(!autoOn) return;
+  autoT-=dt; if(autoT>0) return;
+  autoT=rand(1.1,2.4);
+  const mid=(vis.bottom+vis.top)/2;
+  const ready=entries.filter(e=>e.data);
+  if(ready.length && Math.random()<.55){
+    const e=ready[Math.floor(Math.random()*ready.length)], mul=rand(.55,1.45), S=imgS(mul);
+    launchEntry(e, rand(vis.left+S*.5, vis.right-S*.5), rand(mid, vis.top-S*.55), mul);
+  } else {
+    const salvo=Math.random()<.2?3:1;
+    for(let k=0;k<salvo;k++){
+      const mul=salvo>1?rand(.55,.9):rand(.6,1.45);
+      setTimeout(()=>launchGeneric(rand(vis.left*.8,vis.right*.8), rand(mid, vis.top), mul), k*220);
+    }
+    if(salvo>1) setTimeout(()=>sCheer(.8,0), 2000);
+  }
+}
+
+/* ===== 録画 ===== */
+let recorder=null, recChunks=[], recStart=0, recMime='';
+const REC_MAX=30;
+const dlPromise = (window.claude && typeof window.claude.use==='function') ? window.claude.use('downloads').catch(()=>null) : Promise.resolve(null);
+function pickMime(){
+  if(!window.MediaRecorder) return '';
+  const c=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  return c.find(m=>MediaRecorder.isTypeSupported(m))||'';
+}
+if(!window.MediaRecorder || !canvas.captureStream) $('#rec').hidden=true;
+function startRec(){
+  initAudio();
+  recMime=pickMime();
+  const stream=canvas.captureStream(30);
+  if(recDest) recDest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+  try{ recorder=new MediaRecorder(stream, recMime?{mimeType:recMime,videoBitsPerSecond:8e6}:{}); }
+  catch(e){ toast('この環境では録画できません'); return; }
+  recChunks=[];
+  recorder.ondataavailable=e=>{ if(e.data && e.data.size) recChunks.push(e.data); };
+  recorder.onstop=()=>{
+    const type=recorder.mimeType||recMime||'video/webm';
+    const blob=new Blob(recChunks,{type});
+    const ext=type.includes('mp4')?'mp4':'webm';
+    const d=new Date(), pad=v=>String(v).padStart(2,'0');
+    saveBlob(blob,`hanabi_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.${ext}`);
+    recorder=null;
+  };
+  recorder.start(500); recStart=performance.now();
+  document.body.classList.add('recording');
+  $('#rec').setAttribute('aria-pressed','true'); $('#rec').textContent='■ 停止';
+}
+function stopRec(){
+  if(recorder && recorder.state!=='inactive') recorder.stop();
+  document.body.classList.remove('recording');
+  $('#rec').setAttribute('aria-pressed','false'); $('#rec').textContent='● 録画';
+}
+async function saveBlob(blob,name){
+  const dl=await dlPromise;
+  if(dl){
+    try{ await dl.save({filename:name,data:blob}); toast('動画を保存しました'); }
+    catch(e){ toast(e && e.code==='declined' ? '保存をキャンセルしました' : '保存できませんでした'); }
+    return;
+  }
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+  toast('動画を保存しました');
+}
+$('#rec').addEventListener('click',()=>{ recorder?stopRec():startRec(); });
+window.addEventListener('keydown',e=>{ if(e.key==='Escape' && recorder) stopRec(); });
+$('#recBadge').addEventListener('click',()=>{ if(recorder) stopRec(); });
+
+/* ===== UI ===== */
+let toastT=0;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
+function segBind(id,fn){
+  const btns=document.querySelectorAll(`#${id} button`);
+  btns.forEach(b=>b.addEventListener('click',()=>{ btns.forEach(x=>x.setAttribute('aria-pressed',String(x===b))); fn(b.dataset.v); }));
+}
+segBind('modeSeg',v=>{ mode=v; reanalyzeAll(); });
+segBind('sizeSeg',v=>{ sizeMul=+v; });
+function toggleBind(id,fn){
+  const b=$('#'+id);
+  b.addEventListener('click',()=>{ const on=b.getAttribute('aria-pressed')!=='true'; b.setAttribute('aria-pressed',String(on)); fn(on); });
+}
+toggleBind('auto',on=>{ initAudio(); autoOn=on; autoT=.2; });
+toggleBind('trail',on=>{ trailOn=on; if(afterPass) afterPass.enabled=on; });
+toggleBind('bloom',on=>{ bloomOn=on; if(bloomPass) bloomPass.enabled=on; });
+toggleBind('sound',on=>{ initAudio(); soundOn=on; });
+toggleBind('cheer',on=>{ initAudio(); cheerOn=on; });
+if(!composer){ $('#trail').hidden=true; $('#bloom').hidden=true; }
+$('#gear').addEventListener('click',()=>{
+  const s=$('#settings'); s.hidden=!s.hidden; $('#gear').setAttribute('aria-expanded',String(!s.hidden));
+});
+$('#density').addEventListener('change',e=>{ density=+e.target.value; reanalyzeAll(); });
+$('#bg').addEventListener('change',e=>{ removeBg=e.target.checked; reanalyzeAll(); });
+
+function loadFiles(files){
+  const list=[...files].filter(f=>f.type.startsWith('image/'));
+  if(!list.length){ toast('画像ファイルを選んでください'); return; }
+  list.forEach((f,idx)=>{
+    const url=URL.createObjectURL(f), img=new Image();
+    img.onload=()=>{
+      const e=addEntry(img,'img',f.name,url);
+      if(e) setTimeout(()=>launchEntry(e, list.length>1?rand(vis.left*.5,vis.right*.5):0, (vis.bottom+vis.top)/2+10, sizeMul), idx*700);
+    };
+    img.onerror=()=>toast('読み込めない画像がありました');
+    img.src=url;
+  });
+}
+$('#file').addEventListener('change',e=>{ loadFiles(e.target.files); e.target.value=''; });
+let dragDepth=0;
+window.addEventListener('dragenter',e=>{ e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+window.addEventListener('dragleave',()=>{ if(--dragDepth<=0){ dragDepth=0; document.body.classList.remove('dragging'); } });
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',e=>{ e.preventDefault(); dragDepth=0; document.body.classList.remove('dragging'); initAudio(); loadFiles(e.dataTransfer.files); });
+/* ===== チップ列のスライド ===== */
+function updateChipFade(){
+  const b=$('#chips');
+  b.classList.toggle('fl', b.scrollLeft>2);
+  b.classList.toggle('fr', b.scrollLeft+b.clientWidth < b.scrollWidth-2);
+}
+(() => {
+  const b=$('#chips');
+  b.addEventListener('scroll',updateChipFade,{passive:true});
+  window.addEventListener('resize',updateChipFade);
+  // マウスホイールの縦回転を横スクロールに
+  b.addEventListener('wheel',e=>{
+    if(Math.abs(e.deltaY)>Math.abs(e.deltaX) && b.scrollWidth>b.clientWidth){ b.scrollLeft+=e.deltaY; e.preventDefault(); }
+  },{passive:false});
+  // マウスでつかんでスライド（タッチは標準のスクロール）
+  let down=false, moved=false, sx=0, sl=0;
+  b.addEventListener('pointerdown',e=>{ if(e.pointerType!=='mouse'||e.button!==0) return; down=true; moved=false; sx=e.clientX; sl=b.scrollLeft; });
+  window.addEventListener('pointermove',e=>{
+    if(!down) return;
+    const dx=e.clientX-sx;
+    if(!moved && Math.abs(dx)>5){ moved=true; b.classList.add('dragging'); }
+    if(moved) b.scrollLeft=sl-dx;
+  });
+  window.addEventListener('pointerup',()=>{ down=false; b.classList.remove('dragging'); });
+  // ドラッグ直後のクリックは選択として扱わない
+  b.addEventListener('click',e=>{ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } },true);
+})();
+$('#addImg').addEventListener('click',()=>{ initAudio(); $('#file').click(); });
+$('#addText').addEventListener('click',()=>{ $('#textForm').hidden=false; $('#textIn').focus(); });
+$('#addDraw').addEventListener('click',()=>{ initAudio(); openPaint(); });
+renderChips();
+
+/* ===== ペイント ===== */
+const pc=$('#pc'), pctx=pc.getContext('2d');
+let tool='pen', brush=12, drawing=false, lastPt=null, undoStack=[];
+function updateBrushDot(){
+  const px=Math.max(3, brush*pc.getBoundingClientRect().width/pc.width || brush*.6);
+  const d=$('#brushDot span'); d.style.width=d.style.height=Math.min(40,px)+'px';
+}
+function openPaint(){ $('#paint').hidden=false; updateBrushDot(); }
+function closePaint(){ $('#paint').hidden=true; }
+function pcPoint(e){ const r=pc.getBoundingClientRect(); return { x:(e.clientX-r.left)*pc.width/r.width, y:(e.clientY-r.top)*pc.height/r.height }; }
+function strokeTo(a,b){
+  pctx.globalCompositeOperation = tool==='eraser' ? 'destination-out' : 'source-over';
+  pctx.strokeStyle='#fff'; pctx.fillStyle='#fff';
+  pctx.lineWidth = tool==='eraser' ? brush*1.6 : brush;
+  pctx.lineCap='round'; pctx.lineJoin='round';
+  if(a.x===b.x && a.y===b.y){ pctx.beginPath(); pctx.arc(a.x,a.y,pctx.lineWidth/2,0,Math.PI*2); pctx.fill(); return; }
+  pctx.beginPath(); pctx.moveTo(a.x,a.y); pctx.lineTo(b.x,b.y); pctx.stroke();
+}
+pc.addEventListener('pointerdown',e=>{
+  e.preventDefault(); pc.setPointerCapture(e.pointerId);
+  undoStack.push(pctx.getImageData(0,0,pc.width,pc.height)); if(undoStack.length>25) undoStack.shift();
+  drawing=true; lastPt=pcPoint(e); strokeTo(lastPt,lastPt);
+});
+pc.addEventListener('pointermove',e=>{
+  if(!drawing) return;
+  const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
+  for(const ce of evs){ const p=pcPoint(ce); strokeTo(lastPt,p); lastPt=p; }
+});
+const endStroke=()=>{ drawing=false; lastPt=null; };
+pc.addEventListener('pointerup',endStroke); pc.addEventListener('pointercancel',endStroke);
+segBind('toolSeg',v=>{ tool=v; });
+$('#brush').addEventListener('input',e=>{ brush=+e.target.value; updateBrushDot(); });
+$('#pUndo').addEventListener('click',()=>{ const d=undoStack.pop(); if(d) pctx.putImageData(d,0,0); });
+$('#pClear').addEventListener('click',()=>{ undoStack.push(pctx.getImageData(0,0,pc.width,pc.height)); pctx.clearRect(0,0,pc.width,pc.height); });
+$('#pCancel').addEventListener('click',closePaint);
+$('#pDone').addEventListener('click',()=>{
+  // 描いた範囲だけ切り出す
+  const d=pctx.getImageData(0,0,pc.width,pc.height).data;
+  let x0=pc.width, y0=pc.height, x1=-1, y1=-1;
+  for(let y=0;y<pc.height;y++) for(let x=0;x<pc.width;x++) if(d[(y*pc.width+x)*4+3]>40){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+  if(x1<0){ toast('何か描いてから打ち上げてね'); return; }
+  const m=16; x0=Math.max(0,x0-m); y0=Math.max(0,y0-m); x1=Math.min(pc.width-1,x1+m); y1=Math.min(pc.height-1,y1+m);
+  const c=document.createElement('canvas'); c.width=x1-x0+1; c.height=y1-y0+1;
+  c.getContext('2d').drawImage(pc,x0,y0,c.width,c.height,0,0,c.width,c.height);
+  const e=addEntry(c,'draw','らくがき',c.toDataURL('image/png'));
+  if(e){ closePaint(); pctx.clearRect(0,0,pc.width,pc.height); undoStack=[];
+    launchEntry(e,0,(vis.bottom+vis.top)/2+10,sizeMul); }
+});
+window.addEventListener('keydown',e=>{ if(e.key==='Escape' && !$('#paint').hidden) closePaint(); });
+
+/* ===== ループ ===== */
+let last=performance.now(), clock=0;
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now; clock+=dt;
+  autoStep(dt);
+  update(dt);
+  for(let i=0;i<STARS;i++) sA[i]=.35+.3*Math.sin(clock*1.3+sSeed[i])*Math.sin(clock*.7+sSeed[i]*2);
+  starGeo.attributes.aAlpha.needsUpdate=true;
+  flashLv*=Math.exp(-dt*4); flashMat.uniforms.uI.value=flashLv;
+  if(recorder){
+    const s=Math.floor((now-recStart)/1000);
+    $('#recBadge').textContent=`● ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}　タップで停止`;
+    if(s>=REC_MAX) stopRec();
+  }
+  if(composer && (trailOn||bloomOn)) composer.render(dt); else renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setTimeout(()=>launchGeneric(0,(vis.bottom+vis.top)/2+15,1),500);
+})();
+</script>
+</body>
+</html>
