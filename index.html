@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NGT91CXKBG"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-NGT91CXKBG');
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>はなびメーカー</title>
@@ -113,6 +122,24 @@ body.dragging #drop{ display:grid; }
 #brush{ width:120px; accent-color:var(--lantern); }
 #brushDot{ width:40px; height:40px; display:grid; place-items:center; }
 #brushDot span{ display:block; border-radius:50%; background:var(--paper); }
+#help{ position:fixed; inset:0; z-index:6; background:rgba(4,5,15,.72); display:flex; align-items:center; justify-content:center;
+  padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px)); }
+#help[hidden]{ display:none; }
+.helpbox{ width:min(520px,100%); max-height:100%; background:var(--panel); border:1px solid var(--line); border-radius:22px;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  padding:14px 16px; display:flex; flex-direction:column; gap:8px; user-select:text; }
+.helphead{ display:flex; align-items:center; gap:10px; }
+.helphead h2{ margin:0; flex:1; font-family:"Yusei Magic",sans-serif; font-weight:400; font-size:20px; color:var(--lantern); }
+.x2{ flex:none; width:40px; height:40px; border-radius:50%; border:1px solid var(--line); background:rgba(255,255,255,.06);
+  color:var(--paper); font-size:20px; line-height:1; padding:0; cursor:pointer; }
+.x2:focus-visible{ outline:2px solid var(--lantern); outline-offset:2px; }
+.helpbody{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; font-size:14px; line-height:1.7; padding-right:4px; }
+.helpbody h3{ margin:12px 0 2px; font-size:15px; color:var(--lantern); }
+.helpbody h3:first-child{ margin-top:0; }
+.helpbody ul{ margin:0; padding-left:1.2em; }
+.helpbody b{ color:var(--lantern); font-weight:700; }
+.helpfoot{ margin:0; padding-top:8px; border-top:1px solid var(--line); font-size:13px; color:var(--muted); text-align:right; }
+.helpfoot a{ color:var(--lantern); }
 @media (max-width:560px){
   .btn,.seg button,select{ font-size:13px; padding:0 11px; }
   .seg button{ padding:0 10px; }
@@ -168,6 +195,7 @@ body.dragging #drop{ display:grid; }
     <button class="btn" id="sound" type="button" aria-pressed="true">音</button>
     <button class="btn" id="cheer" type="button" aria-pressed="true">歓声</button>
     <label class="chk"><input type="checkbox" id="bg" checked>絵の背景を消す</label>
+    <button class="btn" id="helpBtn" type="button" aria-haspopup="dialog" aria-controls="help">ヘルプ</button>
     <span id="info"></span>
   </div>
   <input type="file" id="file" accept="image/*" multiple hidden>
@@ -189,6 +217,39 @@ body.dragging #drop{ display:grid; }
       <button class="btn" id="pCancel" type="button">やめる</button>
       <button class="btn primary" id="pDone" type="button">打ち上げる</button>
     </div>
+  </div>
+</div>
+<div id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="helpbox">
+    <div class="helphead">
+      <h2 id="helpTitle">はなびメーカーの遊び方</h2>
+      <button class="x2" id="helpClose" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div class="helpbody">
+      <h3>打ち上げる</h3>
+      <ul>
+        <li>夜空をタップ（クリック）すると、選んでいる花火がその場所に上がります。</li>
+        <li>大きさは「小・中・大」で選べます。「自動で連発」をオンにすると、いろいろな大きさで次々に上がります。</li>
+      </ul>
+      <h3>花火を増やす</h3>
+      <ul>
+        <li><b>＋絵</b>：画像を選ぶと、その絵の形の花火になります。画面にドラッグ＆ドロップしてもOK。</li>
+        <li><b>＋文字</b>：好きな言葉（14文字まで）を金・虹・桜・青の色で花火にします。</li>
+        <li><b>＋描く</b>：ペンでらくがきして「打ち上げる」。色は打ち上げるたびに変わります。</li>
+        <li>増やした花火は下に並びます。タップで選び、×で消せます。</li>
+      </ul>
+      <h3>見た目を変える</h3>
+      <ul>
+        <li><b>点描 / 輪郭</b>：絵を粒で塗るか、ふちだけで描くかを切り替えます。</li>
+        <li><b>設定</b>：粒の細かさ、残像、光のにじみ、音、歓声を切り替えられます。</li>
+        <li>絵の花火がうまく出ないときは「絵の背景を消す」を外してみてください。</li>
+      </ul>
+      <h3>録画する</h3>
+      <ul>
+        <li>「● 録画」で夜空を音つきで録画します（最大30秒）。もう一度押すか、上の赤い表示をタップすると止まって保存されます。</li>
+      </ul>
+    </div>
+    <p class="helpfoot">はなびメーカー ／ <a href="https://ichinoji-maruichi.github.io/" target="_blank" rel="noopener">マルイチソフト</a></p>
   </div>
 </div>
 <div id="drop">ここに絵を落とす</div>
@@ -1977,6 +2038,12 @@ if(!composer){ $('#trail').hidden=true; $('#bloom').hidden=true; }
 $('#gear').addEventListener('click',()=>{
   const s=$('#settings'); s.hidden=!s.hidden; $('#gear').setAttribute('aria-expanded',String(!s.hidden));
 });
+function openHelp(){ $('#help').hidden=false; $('#helpClose').focus(); }
+function closeHelp(){ $('#help').hidden=true; $('#helpBtn').focus(); }
+$('#helpBtn').addEventListener('click',openHelp);
+$('#helpClose').addEventListener('click',closeHelp);
+$('#help').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeHelp(); });
+window.addEventListener('keydown',e=>{ if(e.key==='Escape' && !$('#help').hidden) closeHelp(); });
 $('#density').addEventListener('change',e=>{ density=+e.target.value; reanalyzeAll(); });
 $('#bg').addEventListener('change',e=>{ removeBg=e.target.checked; reanalyzeAll(); });
 
